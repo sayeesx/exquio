@@ -2,12 +2,32 @@ import { StyleSheet, View, Text, TextInput, TouchableOpacity, Animated, Easing }
 import Icon from "react-native-vector-icons/MaterialCommunityIcons"
 import { useRouter } from "expo-router"
 import { useState, useRef, useEffect } from "react"
+import NotificationModal from './NotificationModal'
 
 export default function Header() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
-  const [showNotifications, setShowNotifications] = useState(false)
+  const [showNotificationModal, setShowNotificationModal] = useState(false)
   const bellAnim = useRef(new Animated.Value(0)).current
+
+  const [notifications] = useState([
+    {
+      id: '1',
+      title: 'Appointment Reminder',
+      message: 'Your appointment with Dr. Smith is tomorrow at 10:00 AM',
+      time: '1 hour ago',
+      icon: 'calendar-clock',
+      type: 'info'
+    },
+    {
+      id: '2',
+      title: 'New Message',
+      message: 'You have a new message from City Hospital',
+      time: '2 hours ago',
+      icon: 'message-text',
+      type: 'message'
+    }
+  ])
 
   useEffect(() => {
     const shakeAnimation = Animated.sequence([
@@ -47,6 +67,10 @@ export default function Header() {
     router.push("/profile")
   }
 
+  const handleNotificationPress = () => {
+    setShowNotificationModal(true);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
@@ -54,7 +78,10 @@ export default function Header() {
           <Icon name="ambulance" size={24} color="#3B39E4" />
         </TouchableOpacity>
         <View style={styles.rightIcons}>
-          <TouchableOpacity style={styles.notificationButton} onPress={() => setShowNotifications(true)}>
+          <TouchableOpacity 
+            style={styles.notificationButton} 
+            onPress={handleNotificationPress}
+          >
             <Animated.View
               style={[
                 styles.notificationIcon,
@@ -94,6 +121,12 @@ export default function Header() {
           <Icon name="magnify" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      <NotificationModal
+        visible={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        notifications={notifications}
+      />
     </View>
   )
 }

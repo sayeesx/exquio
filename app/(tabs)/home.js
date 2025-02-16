@@ -22,6 +22,7 @@ import { supabase } from '../../lib/supabase'
 import { SkeletonImage } from '../../hooks/SkeletonImage'
 import Header from '../../components/header'
 import { HospitalCardSkeleton } from '../../components/HospitalCardSkeleton';
+import { secureLog } from '../../utils/secureLogging';
 
 const { width } = Dimensions.get("window")
 
@@ -127,8 +128,8 @@ export default function Home() {
       const cachedData = await AsyncStorage.getItem('hospitalData');
       if (cachedData) {
         const parsed = JSON.parse(cachedData);
-        console.log('Using cached data:', parsed);
-        setHospitalData(parsed.slice(0, 3)); // Limit to 3 items
+        secureLog('Using cached hospital data', parsed);
+        setHospitalData(parsed.slice(0, 3));
       }
 
       // Fetch fresh data
@@ -136,30 +137,30 @@ export default function Home() {
         .from('hospitals')
         .select('*')
         .order('name')
-        .limit(3); // Limit to 3 items
+        .limit(3);
       
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("Supabase error:", error.message); // Only log error message
         return;
       }
 
       if (data) {
-        console.log('Fetched hospital data:', data);
+        secureLog('Fetched hospital data', data);
         setHospitalData(data);
         await AsyncStorage.setItem('hospitalData', JSON.stringify(data));
       } else {
         console.log('No data returned from Supabase');
       }
     } catch (error) {
-      console.error("Failed to fetch hospital data:", error);
+      console.error("Failed to fetch hospital data:", error.message); // Only log error message
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Add this debug useEffect
+  // Update the debug useEffect
   useEffect(() => {
-    console.log('Current hospitalData state:', hospitalData);
+    secureLog('Current hospitalData state', hospitalData);
   }, [hospitalData]);
 
   const loadUserData = useCallback(async () => {

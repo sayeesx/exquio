@@ -4,14 +4,13 @@ import {
   Text, 
   StyleSheet, 
   TouchableOpacity, 
-  ScrollView,
-  SafeAreaView,
   Animated,
   Modal,
-  Dimensions
+  Dimensions,
+  FlatList
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { fonts, typography } from '../app/constants/fonts';
 
@@ -19,6 +18,23 @@ const { height } = Dimensions.get('window');
 
 export default function NotificationModal({ visible, onClose, notifications = [] }) {
   const router = useRouter();
+  const slideAnim = React.useRef(new Animated.Value(height)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.spring(slideAnim, {
+        toValue: 0, // Changed from height * 0.4 to 0
+        useNativeDriver: true,
+        bounciness: 5,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: height,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
 
   const getIconName = (type) => {
     switch (type) {
@@ -46,134 +62,127 @@ export default function NotificationModal({ visible, onClose, notifications = []
     }
   };
 
+  const renderNotification = ({ item }) => (
+    <View style={styles.notificationItem}>
+      <Icon name={item.icon || "bell"} size={24} color="#3B39E4" />
+      <View style={styles.notificationContent}>
+        <Text style={styles.notificationTitle}>{item.title}</Text>
+        <Text style={styles.notificationTime}>{item.time}</Text>
+        <Text style={styles.notificationMessage}>{item.message}</Text>
+      </View>
+    </View>
+  );
+
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      transparent={true}
+      transparent
+      animationType="none"
       onRequestClose={onClose}
     >
-      <BlurView intensity={10} style={styles.backdrop}>
-        <SafeAreaView style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Notifications</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="close" size={24} color="#000" />
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.notificationList}>
-            {notifications.map((notification) => (
-              <TouchableOpacity
-                key={notification.id}
-                style={[
-                  styles.notificationItem,
-                  !notification.read && styles.unreadItem
-                ]}
-                onPress={() => {
-                  if (notification.type === 'appointment') {
-                    router.push(`/appointment/${notification.id}`);
-                  } else if (notification.type === 'hospital') {
-                    router.push(`/hospitals/${notification.id}`);
-                  }
-                  onClose();
-                }}
-              >
-                <View style={[styles.iconContainer, { backgroundColor: `${getIconColor(notification.type)}15` }]}>
-                  <Icon
-                    name={getIconName(notification.type)}
-                    size={24}
-                    color={getIconColor(notification.type)}
-                  />
-                </View>
-                <View style={styles.contentContainer}>
-                  <Text style={styles.notificationTitle}>{notification.title}</Text>
-                  <Text style={styles.message}>{notification.message}</Text>
-                  <Text style={styles.time}>{notification.time}</Text>
-                </View>
-                {!notification.read && <View style={styles.unreadDot} />}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </SafeAreaView>
-      </BlurView>
+      <View style={styles.modalOverlay}>
+        <TouchableOpacity 
+          style={styles.closeArea} 
+          onPress={onClose} 
+          activeOpacity={1}
+        />
+        <Animated.View
+          style={[
+            styles.modalContent,
+            {
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.handleBar} />
+          <Text style={styles.modalTitle}>Notifications</Text>
+          {notifications.length > 0 ? (
+            <FlatList
+              data={notifications}
+              renderItem={renderNotification}
+              keyExtractor={(item, index) => item.id || index.toString()}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Icon name="bell-off" size={48} color="#ccc" />
+              <Text style={styles.emptyText}>No notifications yet</Text>
+            </View>
+          )}
+        </Animated.View>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  container: {
+  closeArea: {
     flex: 1,
-    marginTop: height * 0.1,
-    backgroundColor: '#fff',
+  },
+  modalContent: {
+    position: 'absolute',
+    bottom: 0, // Changed from negative value
+    left: 0,
+    right: 0,
+    height: height * 0.6,
+    backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    paddingTop: 12,
   },
-  title: {
-    ...typography.h2,
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 16,
     color: '#000',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  notificationList: {
-    flex: 1,
   },
   notificationItem: {
     flexDirection: 'row',
-    padding: 16,
+    padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    backgroundColor: '#fff',
+    borderBottomColor: '#f0f0f0',
+    alignItems: 'flex-start',
   },
-  unreadItem: {
-    backgroundColor: '#F8F9FF',
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  contentContainer: {
+  notificationContent: {
+    marginLeft: 12,
     flex: 1,
-    marginRight: 24,
   },
   notificationTitle: {
-    ...typography.body1,
+    fontSize: 16,
+    fontWeight: '500',
     color: '#000',
     marginBottom: 4,
   },
-  message: {
-    ...typography.body2,
+  notificationTime: {
+    fontSize: 12,
     color: '#666',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  time: {
-    ...typography.caption,
-    color: '#999',
+  notificationMessage: {
+    fontSize: 14,
+    color: '#333',
   },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3B39E4',
-    position: 'absolute',
-    right: 16,
-    top: 20,
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
   },
 });

@@ -24,6 +24,7 @@ import { MotiView } from "moti";
 import { Easing } from "react-native-reanimated";
 import { supabase } from '../../../lib/supabase';
 import { HospitalCardSkeleton } from '../../../components/HospitalCardSkeleton';
+import { secureLog } from '../../../utils/secureLogging';
 
 const { width } = Dimensions.get("window");
 
@@ -54,7 +55,9 @@ const HospitalCard = React.memo(({ hospital, onPress, index }) => {
     ]).start();
   }, []);
 
-  console.log('Hospital data in card:', hospital); // Debug log
+  useEffect(() => {
+    secureLog('Hospital data in card', hospital);
+  }, [hospital]);
 
   return (
     <AnimatedCard 
@@ -143,9 +146,8 @@ export default function Hospitals() {
         throw error;
       }
       
-      console.log('Fetched hospitals:', data); // Debug log
+      secureLog('Fetched hospitals', data); // Replace console.log with secureLog
       
-      // Transform data to ensure correct image URLs
       const processedData = data?.map(hospital => ({
         ...hospital,
         image_url: hospital.image_url || hospital.image,
@@ -154,7 +156,7 @@ export default function Hospitals() {
 
       setHospitals(processedData);
     } catch (err) {
-      console.error('Error loading hospitals:', err);
+      console.error('Error loading hospitals:', err.message); // Only log error message
       setError(err.message);
       Alert.alert('Error', 'Failed to load hospitals');
     } finally {
