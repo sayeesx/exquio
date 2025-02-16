@@ -35,6 +35,7 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     padding: 10,
+    marginBottom: 10,
   },
   name: {
     fontSize: 18,
