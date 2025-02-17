@@ -23,6 +23,7 @@ import { SkeletonImage } from '../../hooks/SkeletonImage'
 import Header from '../../components/header'
 import { HospitalCardSkeleton } from '../../components/HospitalCardSkeleton';
 import { secureLog } from '../../utils/secureLogging';
+import DoctorCard from '../../components/DoctorCard';
 
 const { width } = Dimensions.get("window")
 
@@ -272,32 +273,19 @@ export default function Home() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle]}>Popular Doctors</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle]}>Popular Doctors</Text>
+            <TouchableOpacity onPress={() => router.push('/doctors')}>
+              <Text style={[styles.seeAll]}>See All</Text>
+            </TouchableOpacity>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.doctorsScroll}>
             {popularDoctors.map((doctor) => (
-              <View key={doctor.id} style={styles.doctorCard}>
-                <BlurView intensity={80} tint="light" style={styles.doctorCardContent}>
-                  <View style={styles.doctorImageContainer}>
-                    <Image source={doctor.image} style={styles.doctorImage} resizeMode="cover" />
-                  </View>
-                  <View style={styles.doctorInfo}>
-                    <Text style={[styles.doctorName]} numberOfLines={1}>
-                      {doctor.name}
-                    </Text>
-                    <View style={styles.specialtyChip}>
-                      <Icon name={doctor.specialtyIcon} size={14} color="#3B39E4" />
-                      <Text style={[styles.specialtyText]}>{doctor.specialty}</Text>
-                    </View>
-                    <Text style={[styles.fieldOfStudy]} numberOfLines={2}>
-                      {doctor.fieldOfStudy}
-                    </Text>
-                    <TouchableOpacity style={styles.bookingButton}>
-                      <Text style={[styles.bookingButtonText]}>Book Now</Text>
-                      <Icon name="calendar-plus" size={16} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                </BlurView>
-              </View>
+              <DoctorCard
+                key={doctor.id}
+                doctor={doctor}
+                onPress={(doctor) => router.push(`/doctors/${doctor.id}`)}
+              />
             ))}
           </ScrollView>
         </View>
@@ -353,7 +341,6 @@ const styles = StyleSheet.create({
   },
   specialtyScroll: {
     paddingHorizontal: 20,
-
   },
   specialtyContainer: {
     flexDirection: "row",
@@ -363,7 +350,6 @@ const styles = StyleSheet.create({
     width: 180,
     padding: 10,
     marginBottom: 10,
-  
     borderRadius: 30,
     backgroundColor: "#F5F5F5",
     elevation: 2,
@@ -399,79 +385,15 @@ const styles = StyleSheet.create({
   doctorsScroll: {
     paddingHorizontal: 20,
   },
-  doctorCard: {
-    width: 300,
-    marginRight: 16,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  doctorCardContent: {
-    flexDirection: "row",
-    padding: 12,
-  },
-  doctorImageContainer: {
-    width: 100,
-    height: 140,
-    borderRadius: 12,
-    overflow: "hidden",
-    marginRight: 12,
-  },
-  doctorImage: {
-    width: "100%",
-    height: "100%",
-  },
-  doctorInfo: {
-    flex: 1,
-    justifyContent: "space-between",
-  },
-  doctorName: {
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-    color: "#000",
-    marginBottom: 8,
-  },
-  specialtyChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(59, 57, 228, 0.1)",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    alignSelf: "flex-start",
-    marginBottom: 8,
-  },
-  specialtyText: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    color: "#3B39E4",
-    marginLeft: 4,
-  },
-  fieldOfStudy: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    color: "#666",
-    marginBottom: 8,
-  },
-  bookingButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#3B39E4",
-    padding: 8,
-    borderRadius: 8,
-    gap: 4,
-  },
-  bookingButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-  },
   hospitalSection: {
     marginBottom: 24,
   },
+  hospitalCardsContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
   hospitalCardContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -483,7 +405,6 @@ const styles = StyleSheet.create({
   },
   hospitalCard: {
     height: 180,
-    width: '90%',
     backgroundColor: '#fff',
     borderRadius: 12,
     overflow: 'hidden',
@@ -578,29 +499,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter_500Medium',
     color: '#666',
-  },
-  hospitalCardsContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  
-  hospitalCardContainer: {
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  
-  // Update existing hospital card styles to match the animation
-  hospitalCard: {
-    height: 180,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
+  }
 })
