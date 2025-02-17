@@ -1,330 +1,689 @@
-import React, { useState } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-// Update the hospitals data to include all three hospitals
-const hospitals = [
-  {
-    id: '1',
-    name: 'ASTER MIMS Hospital',
-    location: 'NH 66, Calicut-Thrissur Road, Kottakkal, Kerala, 676501',
-    image: 'https://www.asterhospitals.in/sites/default/files/styles/optimize_images/public/2021-01/hospital-image_1.png.webp?itok=7qR8Hcp7',
-    description: 'Aster MIMS Kottakkal is an NABH accredited multi-specialty hospital that delivers a comprehensive range of preventive, acute and outpatient services. The hospital, located in downtown Kottakkal in Kerala is ideal for people seeking treatment for various ailments, because of its excellent infrastructure and our commitment to maintain the highest standards of safety, cleanliness, integrity and honesty.',
-    workingHours: {
-      regular: '24/7',
-      emergency: '24/7'
-    },
-    services: [
-      'Cardiac Sciences',
-      'Orthopaedics',
-      'Neuro Sciences',
-      'General Surgery',
-      'Child Development Centre',
-      'Medical Oncology',
-      'Endocrinology & Diabetology',
-      'Critical Care Medicine',
-      'Urology',
-      'Clinical Imaging',
-      'Paediatrics & Neonatology',
-      'Obstetrics & Gynaecology'
-    ],
-    doctors: [
-      {
-        id: '101',
-        name: 'Dr. Thejus Kallarikkandi',
-        specialty: 'Critical Care Medicine',
-        image: 'https://www.asterhospitals.in/sites/default/files/2024-01/Dr.%20Thejus%20Kallarikkandi.jpg',
-        experience: '15+ years',
-        rating: 4.8,
-        designation: 'Senior Consultant & HOD - Critical Care Medicine'
-      },
-      {
-        id: '102',
-        name: 'Dr. Tahsin Neduvanchery',
-        specialty: 'Cardiology',
-        image: 'https://www.asterhospitals.in/sites/default/files/2024-01/Dr.%20Tahsin%20Neduvanchery.jpg',
-        experience: '12+ years',
-        rating: 4.9,
-        designation: 'Sr. Consultant - Interventional Cardiology'
-      },
-      {
-        id: '103',
-        name: 'Dr. Shaji KR',
-        specialty: 'Neurosurgery',
-        image: 'https://www.asterhospitals.in/sites/default/files/2024-01/best%20neurosurgeon%20in%20kerala_0.jpg',
-        experience: '15+ years',
-        rating: 4.9,
-        designation: 'Senior Consultant - Neuro & Spine Surgery'
-      },
-      {
-        id: '104',
-        name: 'Dr. Faizal M Iqbal',
-        specialty: 'Orthopaedics',
-        image: 'https://www.asterhospitals.in/sites/default/files/2024-01/orthopedic%20surgeon%20in%20kottakkal_0.jpg',
-        experience: '12+ years',
-        rating: 4.8,
-        designation: 'Sr. Consultant - Orthopaedic & Spine Surgery'
-      },
-      {
-        id: '105',
-        name: 'Dr. Dwitheeya P',
-        specialty: 'Psychology',
-        image: 'https://www.asterhospitals.in/sites/default/files/2024-01/Dr%20Dwitheeya%2C%20Child%20Psychologist_0.jpg',
-        experience: '10+ years',
-        rating: 4.7,
-        designation: 'Head of the department, Psychologist and Early Interventionist'
-      },
-      {
-        id: '106',
-        name: 'Dr. Mahesh Menon',
-        specialty: 'Gastroenterology',
-        image: 'https://www.asterhospitals.in/sites/default/files/2024-01/Dr.%20Mahesh%2C%20Gastroenterology_0.jpg',
-        experience: '15+ years',
-        rating: 4.9,
-        designation: 'Senior Consultant – Gastroenterology'
-      }
-    ],
-    contact: {
-      phone: '+91 9656000611',
-      emergency: '0483 280 7000',
-      email: 'info.ktkl@asterhospital.com'
-    }
-  },
-  {
-    id: '2',
-    name: 'ALMAS Hospital',
-    location: 'Near Bus Stand',
-    image:  require("../../../assets/hospital/almas.png"),
-    description: 'ALMAS Hospital is known for its excellent patient care and modern medical facilities, serving the community with dedication.',
-    workingHours: {
-      regular: '8:00 AM - 8:00 PM',
-      emergency: '24/7'
-    },
-    services: [
-      'Emergency Services',
-      'General Medicine',
-      'Orthopedics',
-      'ENT',
-      'Pediatrics',
-      'Gynecology',
-      'Dental',
-      'Physiotherapy'
-    ],
-    doctors: [
-      {
-        id: '201',
-        name: 'Dr. Sarah Ahmed',
-        specialty: 'General Medicine',
-        image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=2940&auto=format&fit=crop',
-        experience: '12 years',
-        rating: 4.9
-      },
-      {
-        id: '202',
-        name: 'Dr. Rahul Menon',
-        specialty: 'Orthopedics',
-        image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=2940&auto=format&fit=crop',
-        experience: '10 years',
-        rating: 4.7
-      }
-    ],
-    contact: {
-      phone: '+91 9876543210',
-      email: 'info@almashospital.com'
-    }
-  },
-  {
-    id: '3',
-    name: 'HMS Hospital',
-    location: 'MG Road',
-    image: "https://lh3.googleusercontent.com/p/AF1QipOyRNyXCNKsv7oGheU53iKTxotmy2NHf5rT4IRi=s680-w680-h510",
-    description: 'HMS Hospital offers comprehensive healthcare services with a focus on patient comfort and advanced medical technology.',
-    workingHours: {
-      regular: '8:30 AM - 8:30 PM',
-      emergency: '24/7'
-    },
-    services: [
-      'Emergency Care',
-      'Internal Medicine',
-      'Surgery',
-      'Cardiology',
-      'Neurology',
-      'Pediatrics',
-      'Radiology',
-      'Laboratory Services'
-    ],
-    doctors: [
-      {
-        id: '301',
-        name: 'Dr. Meera Krishnan',
-        specialty: 'Internal Medicine',
-        image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2940&auto=format&fit=crop',
-        experience: '14 years',
-        rating: 4.8
-      },
-      {
-        id: '302',
-        name: 'Dr. Anand Kumar',
-        specialty: 'Cardiology',
-        image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=2940&auto=format&fit=crop',
-        experience: '16 years',
-        rating: 4.9
-      }
-    ],
-    contact: {
-      phone: '+91 8765432109',
-      email: 'info@hmshospital.com'
-    }
-  }
-];
-
-const DoctorCard = ({ doctor }) => {
-  const [imageError, setImageError] = useState(false);
-
-  return (
-    <View style={styles.doctorCard}>
-      <Image 
-        source={typeof doctor.image === 'string' ? { uri: doctor.image } : doctor.image}
-        style={styles.doctorImage}
-        resizeMode="cover"
-        onError={() => setImageError(true)}
-      />
-      <View style={styles.doctorInfo}>
-        <Text style={styles.doctorName}>{doctor.name}</Text>
-        <Text style={styles.doctorRole}>{doctor.designation || doctor.role}</Text>
-        <Text style={styles.doctorSpeciality}>{doctor.specialty || doctor.speciality}</Text>
-      </View>
-    </View>
-  );
-};
+import { supabase } from '../../../lib/supabase';
+import { secureLog } from '../../../utils/secureLogging';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MotiView } from 'moti';
+import StatCard from '../../../components/StatCard';
+// Remove or comment out the BlurView import if it's causing issues
+// import { BlurView } from 'expo-blur';
 
 const HospitalDetail = () => {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const hospital = hospitals.find(h => h.id === id);
-  const [imageError, setImageError] = useState(false);
+  const [hospital, setHospital] = useState(null);
+  const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [popularDoctors, setPopularDoctors] = useState([]);
 
-  if (!hospital) {
+  const fetchHospitalDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data: hospitalData, error } = await supabase
+        .from('hospitals')
+        .select(`
+          id,
+          name,
+          location,
+          image_url,
+          logo_url,
+          type,
+          emergency_contact,
+          email,
+          rating,
+          description,
+          facilities,
+          specialities,
+          doctors_count,
+          bed_count,
+          established_year,
+          working_hours,
+          insurance_accepted
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      // Replace console.log with secureLog
+      secureLog('Fetched hospital data', hospitalData);
+      
+      setHospital(hospitalData);
+    } catch (err) {
+      // Keep error logging for debugging but don't expose sensitive data
+      console.error('Error fetching hospital details:', err.message);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPopularDoctors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('doctors')
+        .select(`
+          id,
+          name,
+          specialty,
+          avatar_url,
+          rating,
+          experience_years,
+          qualification,
+          consultation_fee
+        `)
+        .eq('hospital_id', id)
+        .order('rating', { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      setPopularDoctors(data?.map(doctor => ({
+        ...doctor,
+        image_url: doctor.avatar_url, // Map avatar_url to image_url for consistency
+        rating: doctor.rating || 4.5,
+        experience: doctor.experience_years ? `${doctor.experience_years} Years` : null
+      })));
+    } catch (err) {
+      console.error('Error fetching doctors:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchHospitalDetails();
+      fetchPopularDoctors();
+
+      // Subscribe to real-time updates for this specific hospital
+      const channel = supabase
+        .channel(`hospital_${id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'hospitals',
+            filter: `id=eq.${id}`
+          },
+          async (payload) => {
+            console.log('Hospital detail update:', payload);
+            
+            if (payload.eventType === 'UPDATE') {
+              setHospital(payload.new);
+            } else if (payload.eventType === 'DELETE') {
+              // Handle hospital deletion
+              setError('This hospital is no longer available');
+              router.replace('/hospitals');
+            }
+          }
+        )
+        .subscribe();
+
+      // Subscribe to associated doctors updates
+      const doctorsChannel = supabase
+        .channel(`hospital_${id}_doctors`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'doctors',
+            filter: `hospital_id=eq.${id}`
+          },
+          async (payload) => {
+            console.log('Doctors update:', payload);
+            
+            // Refresh doctors list on any change
+            const { data } = await supabase
+              .from('doctors')
+              .select('*')
+              .eq('hospital_id', id)
+              .order('rating', { ascending: false })
+              .limit(3);
+            
+            setDoctors(data || []);
+          }
+        )
+        .subscribe();
+
+      // Cleanup subscriptions
+      return () => {
+        channel.unsubscribe();
+        doctorsChannel.unsubscribe();
+      };
+    }
+  }, [id]);
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const { data: doctorsData } = await supabase
+          .from('doctors')
+          .select('*')
+          .eq('hospital_id', id)
+          .order('rating', { ascending: false })
+          .limit(3);
+        
+        setDoctors(doctorsData || []);
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+      }
+    };
+
+    if (id) {
+      fetchDoctors();
+    }
+  }, [id]);
+
+  if (loading) {
     return (
-      <View style={styles.container}>
-        <Text>Hospital not found</Text>
+      <View style={[styles.container, styles.centerContainer]}>
+        <ActivityIndicator size="large" color="#6B4EFF" />
+      </View>
+    );
+  }
+  if (error || !hospital) {
+    return (
+      <View style={[styles.container, styles.centerContainer]}>
+        <Text style={styles.errorText}>Unable to load hospital details</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => fetchHospitalDetails()}
+        >
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  const handleSeeAllPress = () => {
-    router.push({
-      pathname: `/hospitals/${id}/all-doctors`,
-    });
+  const workingHours = hospital.working_hours || {
+    weekdays: "9:00 AM - 9:00 PM",
+    weekends: "9:00 AM - 5:00 PM",
+    emergency: "24/7"
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.imageContainer}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Hero Section */}
+      <View style={styles.heroContainer}>
         <Image 
-          source={typeof hospital.image === 'string' ? { uri: hospital.image } : hospital.image}
-          style={[styles.image, !imageLoaded && styles.hiddenImage]} 
-          onLoad={() => setImageLoaded(true)}
-          onError={() => {
-            setImageError(true);
-            setImageLoaded(true);
-          }}
+          source={{ uri: hospital.image_url }}
+          style={styles.heroImage}
+          resizeMode="cover"
         />
+        {/* Add Back Button */}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={28} color="#fff" />
+        </TouchableOpacity>
+
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
+          style={styles.gradient}
+        >
+          {/* Logo positioned higher */}
+          {hospital.logo_url && (
+            <View style={styles.logoContainer}>
+              <Image
+                source={{ uri: hospital.logo_url }}
+                style={styles.hospitalLogo}
+                resizeMode="contain"
+              />
+            </View>
+          )}
+          
+          <View style={styles.headerInfo}>
+            <View style={styles.headerText}>
+              <Text style={styles.hospitalName}>{hospital.name}</Text>
+              <View style={styles.locationRow}>
+                <MaterialCommunityIcons name="map-marker" size={16} color="#fff" />
+                <Text style={styles.locationText}>{hospital.location}</Text>
+              </View>
+            </View>
+            
+            {/* Rating Badge positioned on top right */}
+            {hospital.rating > 0 && (
+              <View style={styles.ratingBadge}>
+                <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+                <Text style={styles.ratingText}>{hospital.rating.toFixed(1)}</Text>
+              </View>
+            )}
+          </View>
+        </LinearGradient>
       </View>
-      
+
+      {/* Quick Stats */}
+      <MotiView style={styles.statsContainer}>
+        <StatCard 
+          icon={<MaterialCommunityIcons name="doctor" size={24} color="#6366F1" />}
+          value={hospital.doctors_count || 0}
+          label="Doctors"
+          delay={100}
+        />
+        <StatCard 
+          icon={<MaterialCommunityIcons name="bed" size={24} color="#6366F1" />}
+          value={hospital.bed_count || 0}
+          label="Beds"
+          delay={200}
+        />
+        <StatCard 
+          icon={<MaterialCommunityIcons name="hospital-building" size={24} color="#6366F1" />}
+          value={hospital.established_year || '-'}
+          label="Est. Year"
+          delay={300}
+        />
+      </MotiView>
+
+      {/* Content Sections */}
       <View style={styles.content}>
-        <Text style={styles.name}>{hospital.name}</Text>
-        
-        <View style={styles.infoRow}>
-          <MaterialCommunityIcons name="map-marker" size={20} color="#666" />
-          <Text style={styles.infoText}>{hospital.location}</Text>
-        </View>
+        {hospital.description && (
+          <MotiView 
+            style={styles.section}
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'timing', delay: 200 }}
+          >
+            <Text style={styles.sectionTitle}>About</Text>
+            <View style={styles.card}>
+              <Text style={styles.description}>{hospital.description}</Text>
+            </View>
+          </MotiView>
+        )}
 
-        {/* About Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <Text style={styles.description}>{hospital.description}</Text>
-        </View>
-
-        {/* Working Hours Section */}
-        <View style={styles.section}>
+        {/* Working Hours */}
+        <MotiView 
+          style={styles.section}
+          from={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', delay: 200 }}
+        >
           <Text style={styles.sectionTitle}>Working Hours</Text>
-          <View style={styles.workingHours}>
+          <View style={styles.workingHoursCard}>
             <View style={styles.workingHoursRow}>
               <MaterialCommunityIcons name="clock-outline" size={20} color="#666" />
               <View style={styles.workingHoursInfo}>
-                <Text style={styles.workingHoursLabel}>Regular Hours</Text>
-                <Text style={styles.workingHoursText}>{hospital.workingHours.regular}</Text>
+                <Text style={styles.workingHoursLabel}>Weekdays</Text>
+                <Text style={styles.workingHoursText}>{workingHours.weekdays}</Text>
               </View>
             </View>
-            <View style={[styles.workingHoursRow, styles.emergencyRow]}>
-              <MaterialCommunityIcons name="ambulance" size={20} color="#ff4444" />
+            <View style={styles.workingHoursRow}>
+              <MaterialCommunityIcons name="calendar" size={20} color="#666" />
               <View style={styles.workingHoursInfo}>
-                <Text style={[styles.workingHoursLabel, styles.emergencyLabel]}>Emergency</Text>
-                <Text style={[styles.workingHoursText, styles.emergencyText]}>{hospital.workingHours.emergency}</Text>
+                <Text style={styles.workingHoursLabel}>Weekends</Text>
+                <Text style={styles.workingHoursText}>{workingHours.weekends}</Text>
               </View>
             </View>
-          </View>
-        </View>
-
-        {/* Services Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Our Services</Text>
-          <View style={styles.servicesList}>
-            {hospital.services.map((service, index) => (
-              <View key={index} style={styles.serviceItem}>
-                <MaterialCommunityIcons name="circle-medium" size={24} color="#6B4EFF" />
-                <Text style={styles.serviceText}>{service}</Text>
+            {workingHours.emergency && (
+              <View style={[styles.workingHoursRow, styles.emergencyRow]}>
+                <MaterialCommunityIcons name="ambulance" size={20} color="#ff4444" />
+                <View style={styles.workingHoursInfo}>
+                  <Text style={[styles.workingHoursLabel, styles.emergencyLabel]}>Emergency</Text>
+                  <Text style={[styles.workingHoursText, styles.emergencyText]}>{workingHours.emergency}</Text>
+                </View>
               </View>
-            ))}
+            )}
           </View>
-        </View>
+        </MotiView>
 
-        {/* Top Doctors Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Our Doctors</Text>
-            <TouchableOpacity 
-              onPress={handleSeeAllPress}
-              style={styles.seeAllButton}
-            >
-              <Text style={styles.seeAllText}>See All Doctors</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.doctorsScroll}
+        {/* Facilities */}
+        {hospital.facilities && hospital.facilities.length > 0 && (
+          <MotiView 
+            style={styles.section}
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'timing', delay: 200 }}
           >
-            {hospital.doctors?.slice(0, 5).map((doctor, index) => (
-              <DoctorCard key={index} doctor={doctor} />
-            ))}
-          </ScrollView>
-        </View>
+            <Text style={styles.sectionTitle}>Facilities</Text>
+            <View style={styles.facilitiesGrid}>
+              {hospital.facilities.map((facility, index) => (
+                <View key={index} style={styles.facilityItem}>
+                  <MaterialCommunityIcons name="check-circle" size={20} color="#6B4EFF" />
+                  <Text style={styles.facilityText}>{facility}</Text>
+                </View>
+              ))}
+            </View>
+          </MotiView>
+        )}
 
-        {/* Contact Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact</Text>
-          <TouchableOpacity style={styles.contactButton}>
-            <MaterialCommunityIcons name="phone" size={20} color="#fff" />
-            <Text style={styles.contactButtonText}>{hospital.contact.phone}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.contactButton}>
-            <MaterialCommunityIcons name="email" size={20} color="#fff" />
-            <Text style={styles.contactButtonText}>{hospital.contact.email}</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Specialities */}
+        {hospital.specialities && hospital.specialities.length > 0 && (
+          <MotiView 
+            style={styles.section}
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'timing', delay: 200 }}
+          >
+            <Text style={styles.sectionTitle}>Specialities</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {hospital.specialities.map((speciality, index) => (
+                <View key={index} style={styles.specialityTag}>
+                  <Text style={styles.specialityText}>{speciality}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </MotiView>
+        )}
+
+        {/* Additional Features */}
+        <MotiView 
+          style={styles.section}
+          from={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', delay: 200 }}
+        >
+          <Text style={styles.sectionTitle}>Additional Features</Text>
+          <View style={styles.featuresGrid}>
+            {hospital.insurance_accepted && (
+              <View style={styles.featureItem}>
+                <MaterialCommunityIcons name="shield-check" size={24} color="#6B4EFF" />
+                <Text style={styles.featureText}>Insurance Accepted</Text>
+              </View>
+            )}
+            {hospital.parking_available && (
+              <View style={styles.featureItem}>
+                <MaterialCommunityIcons name="parking" size={24} color="#6B4EFF" />
+                <Text style={styles.featureText}>Parking Available</Text>
+              </View>
+            )}
+            {hospital.ambulance_available && (
+              <View style={styles.featureItem}>
+                <MaterialCommunityIcons name="ambulance" size={24} color="#6B4EFF" />
+                <Text style={styles.featureText}>24/7 Ambulance</Text>
+              </View>
+            )}
+          </View>
+        </MotiView>
+
+        {/* Popular Doctors */}
+        {popularDoctors.length > 0 && (
+          <MotiView 
+            style={styles.section}
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', delay: 500 }}
+          >
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Popular Doctors</Text>
+              <TouchableOpacity 
+                style={styles.seeAllButton}
+                onPress={() => router.push(`/doctors?hospital_id=${id}`)}
+              >
+                <Text style={styles.seeAllText}>See All</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.doctorsScroll}
+            >
+              {popularDoctors.map((doctor, index) => (
+                <MotiView
+                  key={doctor.id}
+                  from={{ opacity: 0, scale: 0.9, translateX: 20 }}
+                  animate={{ opacity: 1, scale: 1, translateX: 0 }}
+                  transition={{ 
+                    type: 'spring',
+                    delay: 600 + (index * 100),
+                    damping: 15
+                  }}
+                >
+                  <TouchableOpacity 
+                    style={styles.doctorCard}
+                    onPress={() => router.push(`/doctors/${doctor.id}`)}
+                  >
+                    <Image 
+                      source={{ uri: doctor.avatar_url }}
+                      style={styles.doctorImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.doctorInfo}>
+                      <Text style={styles.doctorName}>{doctor.name}</Text>
+                      <Text style={styles.doctorQualification}>{doctor.qualification}</Text>
+                      <Text style={styles.doctorSpeciality}>{doctor.specialty}</Text>
+                      <View style={styles.doctorStats}>
+                        <View style={styles.ratingContainer}>
+                          <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+                          <Text style={styles.ratingText}>{doctor.rating?.toFixed(1)}</Text>
+                        </View>
+                        {doctor.experience_years && (
+                          <Text style={styles.experienceText}>{doctor.experience_years}Y exp.</Text>
+                        )}
+                        {doctor.consultation_fee && (
+                          <Text style={styles.feeText}>₹{doctor.consultation_fee}</Text>
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </MotiView>
+              ))}
+            </ScrollView>
+          </MotiView>
+        )}
+
+        {/* Contact Information */}
+        <MotiView 
+          style={styles.section}
+          from={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', delay: 200 }}
+        >
+          <Text style={styles.sectionTitle}>Contact Information</Text>
+          {hospital.emergency_contact && (
+            <TouchableOpacity style={styles.contactButton}>
+              <MaterialCommunityIcons name="phone" size={20} color="#fff" />
+              <Text style={styles.contactButtonText}>{hospital.emergency_contact}</Text>
+            </TouchableOpacity>
+          )}
+          {hospital.email && (
+            <TouchableOpacity style={styles.contactButton}>
+              <MaterialCommunityIcons name="email" size={20} color="#fff" />
+              <Text style={styles.contactButtonText}>{hospital.email}</Text>
+            </TouchableOpacity>
+          )}
+        </MotiView>
       </View>
     </ScrollView>
   );
 };
 
+const newStyles = {
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#6B4EFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  }
+};
+
+const additionalStyles = {
+  placeholderImage: {
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // ... rest of the existing styles ...
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8FAFC',
+  },
+  heroContainer: {
+    height: 320,
+    position: 'relative',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '100%',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    justifyContent: 'flex-end',
+  },
+  headerInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  logoContainer: {
+    position: 'absolute',
+    top: '15%',
+    left: 20,
+    width: 80,
+    height: 80,
+    backgroundColor: '#fff',
+    borderRadius: 40,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  hospitalLogo: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 30,
+  },
+  headerText: {
+    flex: 1,
+  },
+  hospitalName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationText: {
+    color: '#fff',
+    fontSize: 14,
+    marginLeft: 4,
+    opacity: 0.9,
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  ratingText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginTop: -40,
+    marginBottom: 20,
+    gap: 12,
+    zIndex: 2,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  specialityTag: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  specialityText: {
+    color: '#6366F1',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6366F1',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  doctorCard: {
+    width: 200,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginRight: 16,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   imageContainer: {
     width: '100%',
@@ -362,11 +721,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    paddingHorizontal: 16,
   },
   description: {
     fontSize: 16,
@@ -420,22 +775,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   doctorsScroll: {
-    marginTop: 12,
-  },
-  doctorCard: {
-    width: 200,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginRight: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 16,
   },
   doctorImage: {
     width: '100%',
@@ -488,6 +828,61 @@ const styles = StyleSheet.create({
   hiddenImage: {
     opacity: 0,
   },
+  glassEffect: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backdropFilter: 'blur(10px)',
+  },
+  doctorStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  experienceText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginLeft: 8,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  doctorQualification: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  feeText: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  ...newStyles,
+  ...additionalStyles
 });
 
 export default HospitalDetail;

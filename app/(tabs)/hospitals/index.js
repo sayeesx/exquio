@@ -166,6 +166,45 @@ export default function Hospitals() {
 
   useEffect(() => {
     loadHospitals();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('hospitals_channel')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'hospitals'
+        },
+        async (payload) => {
+          console.log('Real-time update:', payload);
+          
+          switch (payload.eventType) {
+            case 'INSERT':
+              setHospitals(prev => [...prev, payload.new]);
+              break;
+            case 'UPDATE':
+              setHospitals(prev =>
+                prev.map(hospital =>
+                  hospital.id === payload.new.id ? payload.new : hospital
+                )
+              );
+              break;
+            case 'DELETE':
+              setHospitals(prev =>
+                prev.filter(hospital => hospital.id !== payload.old.id)
+              );
+              break;
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      channel.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -202,18 +241,10 @@ export default function Hospitals() {
         throw new Error('Invalid hospital data');
       }
       
-      // Ensure the ID is converted to string if it's a number
-      const hospitalId = hospital.id.toString();
-      
-      // Navigate with error handling
+      // Update the navigation path to match the file structure
       router.push({
-        pathname: `/hospitals/${hospitalId}`,
-        params: {
-          id: hospitalId,
-          name: hospital.name,
-          location: hospital.location,
-          type: hospital.type
-        }
+        pathname: "/hospitals/[id]",
+        params: { id: hospital.id }
       });
     } catch (error) {
       console.error('Navigation error:', error);

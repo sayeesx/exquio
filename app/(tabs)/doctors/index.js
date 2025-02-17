@@ -1,117 +1,112 @@
-import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  FlatList, 
+  Image, 
+  StyleSheet, 
+  TouchableOpacity,
+  ActivityIndicator 
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../../lib/supabase';
-import DoctorCard from '../../../components/DoctorCard';
-import { useRouter } from 'expo-router';
 
-export default function DoctorsIndex() {
-  const [doctorsByHospital, setDoctorsByHospital] = useState({});
-  const [loading, setLoading] = useState(true);
+export default function Doctors() {
+  const { hospital_id } = useLocalSearchParams();
   const router = useRouter();
-
-  const fetchDoctors = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('doctors')
-        .select(`
-          id,
-          name,
-          specialty,
-          qualification,
-          experience_years,
-          avatar_url,
-          bio,
-          consultation_fee,
-          available_days,
-          hospitals (
-            id,
-            name,
-            location
-          )
-        `)
-        .order('name');
-
-      if (error) {
-        console.error('Error fetching doctors:', error.message);
-        return;
-      }
-
-      // Group doctors by hospital
-      const grouped = data.reduce((acc, doctor) => {
-        const hospitalName = doctor.hospitals?.name || 'Independent Doctors';
-        if (!acc[hospitalName]) {
-          acc[hospitalName] = [];
-        }
-        // Transform the data to match DoctorCard expectations
-        const transformedDoctor = {
-          id: doctor.id,
-          name: doctor.name,
-          specialty: doctor.specialty,
-          qualification: doctor.qualification,
-          experience: `${doctor.experience_years} Years`,
-          avatar_url: doctor.avatar_url,
-          bio: doctor.bio,
-          fee: doctor.consultation_fee,
-          availableDays: doctor.available_days,
-          hospital: doctor.hospitals
-        };
-        acc[hospitalName].push(transformedDoctor);
-        return acc;
-      }, {});
-
-      setDoctorsByHospital(grouped);
-    } catch (error) {
-      console.error('Error:', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [hospital, setHospital] = useState(null);
 
   useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        setLoading(true);
+        const query = supabase
+          .from('doctors')
+          .select('*')
+          .order('rating', { ascending: false });
+
+        if (hospital_id) {
+          query.eq('hospital_id', hospital_id);
+          // Also fetch hospital name
+          const { data: hospitalData } = await supabase
+            .from('hospitals')
+            .select('name')
+            .eq('id', hospital_id)
+            .single();
+          setHospital(hospitalData);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        setDoctors(data);
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchDoctors();
-  }, []);
+  }, [hospital_id]);
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Loading doctors...</Text>
+        <ActivityIndicator size="large" color="#6B4EFF" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.pageTitle}>Our Doctors</Text>
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {Object.entries(doctorsByHospital).map(([hospitalName, doctors]) => (
-          <View key={hospitalName} style={styles.hospitalSection}>
-            <Text style={styles.hospitalName}>{hospitalName}</Text>
-            <View style={styles.hospitalInfo}>
-              <Text style={styles.doctorCount}>
-                {doctors.length} Doctor{doctors.length !== 1 ? 's' : ''}
-              </Text>
-            </View>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.doctorsRow}
-            >
-              {doctors.map(doctor => (
-                <View key={doctor.id} style={styles.doctorCardWrapper}>
-                  <DoctorCard
-                    doctor={doctor}
-                    onPress={(doctor) => router.push(`/doctors/${doctor.id}`)}
-                  />
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+        </TouchableOpacity>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>Doctors</Text>
+          {hospital && (
+            <Text style={styles.hospitalName}>{hospital.name}</Text>
+          )}
+        </View>
+      </View>
+
+      <FlatList
+        data={doctors}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <TouchableOpacity 
+            style={styles.doctorCard}
+            onPress={() => router.push(`/doctors/${item.id}`)}
+          >
+            <Image
+              source={{ uri: item.image_url }}
+              style={styles.doctorImage}
+              resizeMode="cover"
+            />
+            <View style={styles.doctorInfo}>
+              <Text style={styles.doctorName}>{item.name}</Text>
+              <Text style={styles.specialtyText}>{item.specialty}</Text>
+              <View style={styles.statsRow}>
+                <View style={styles.ratingContainer}>
+                  <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+                  <Text style={styles.ratingText}>{item.rating?.toFixed(1) || '4.5'}</Text>
                 </View>
-              ))}
-            </ScrollView>
-          </View>
-        ))}
-      </ScrollView>
+                {item.experience && (
+                  <Text style={styles.experienceText}>{item.experience} exp.</Text>
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+        contentContainerStyle={styles.listContent}
+      />
     </View>
   );
 }

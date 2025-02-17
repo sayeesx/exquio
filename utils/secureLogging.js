@@ -11,12 +11,22 @@ const sensitiveFields = [
   'access_token',
   'emergency_contact',
   'id',
-  'description' // Added description to sensitive fields since it's usually null
+  'doctors_count',
+  'bed_count',
+  'established_year',
+  'working_hours',
+  'facilities',
+  'specialities',
+  'insurance_accepted',
+  'image_url',
+  'logo_url'
 ];
 
 const safeFields = [
   'name',
-  'location'
+  'location',
+  'type',
+  'rating'
 ];
 
 const sanitizeData = (data) => {
@@ -24,18 +34,18 @@ const sanitizeData = (data) => {
   
   if (Array.isArray(data)) {
     return data.map(item => {
-      // Only return name and location for hospitals
-      const { name, location } = item;
-      return { name, location };
+      const sanitized = {};
+      safeFields.forEach(field => {
+        if (item[field]) sanitized[field] = item[field];
+      });
+      return sanitized;
     });
   }
   
   if (typeof data === 'object') {
     const sanitized = {};
-    Object.keys(data).forEach(key => {
-      if (safeFields.includes(key)) {
-        sanitized[key] = data[key];
-      }
+    safeFields.forEach(field => {
+      if (data[field]) sanitized[field] = data[field];
     });
     return sanitized;
   }
@@ -45,18 +55,11 @@ const sanitizeData = (data) => {
 
 export const secureLog = (message, data) => {
   const sanitizedData = sanitizeData(data);
+  
   if (!sanitizedData || Object.keys(sanitizedData).length === 0) {
     console.log(`🔒 ${message}: [Data hidden for security]`);
     return;
   }
   
-  // Format the output to be more readable
-  if (Array.isArray(sanitizedData)) {
-    console.log(`🔒 ${message}:`);
-    sanitizedData.forEach((item, index) => {
-      console.log(`  ${index + 1}. ${item.name} (${item.location})`);
-    });
-  } else {
-    console.log(`🔒 ${message}:`, sanitizedData);
-  }
+  console.log(`🔒 ${message}:`, sanitizedData);
 };

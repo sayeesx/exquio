@@ -412,6 +412,7 @@ const styles = StyleSheet.create({
   hospitalImage: {
     width: '100%',
     height: '75%',
+    marginRight: 12,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
