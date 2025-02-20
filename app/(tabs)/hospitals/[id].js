@@ -24,7 +24,9 @@ const HospitalDetail = () => {
     try {
       setLoading(true);
       setError(null);
-      const { data: hospitalData, error } = await supabase
+      
+      // First fetch hospital data
+      const { data: hospitalData, error: hospitalError } = await supabase
         .from('hospitals')
         .select(`
           id,
@@ -38,24 +40,32 @@ const HospitalDetail = () => {
           rating,
           description,
           facilities,
-          specialities,
           doctors_count,
           bed_count,
           established_year,
           working_hours,
-          insurance_accepted
+          insurance_accepted,
+          hospital_specialties (
+            specialty:specialties (
+              id,
+              name,
+              description
+            )
+          )
         `)
         .eq('id', id)
         .single();
 
-      if (error) throw error;
+      if (hospitalError) throw hospitalError;
 
-      // Replace console.log with secureLog
-      secureLog('Fetched hospital data', hospitalData);
+      // Transform the data to match the expected format
+      const transformedHospital = {
+        ...hospitalData,
+        specialities: hospitalData.hospital_specialties?.map(hs => hs.specialty.name) || []
+      };
       
-      setHospital(hospitalData);
+      setHospital(transformedHospital);
     } catch (err) {
-      // Keep error logging for debugging but don't expose sensitive data
       console.error('Error fetching hospital details:', err.message);
       setError(err.message);
     } finally {
@@ -70,7 +80,9 @@ const HospitalDetail = () => {
         .select(`
           id,
           name,
-          specialty,
+          specialty:specialty_id (
+            name
+          ),
           avatar_url,
           rating,
           experience_years,
@@ -82,9 +94,11 @@ const HospitalDetail = () => {
         .limit(3);
 
       if (error) throw error;
+      
       setPopularDoctors(data?.map(doctor => ({
         ...doctor,
-        image_url: doctor.avatar_url, // Map avatar_url to image_url for consistency
+        specialty: doctor.specialty?.name,
+        image_url: doctor.avatar_url,
         rating: doctor.rating || 4.5,
         experience: doctor.experience_years ? `${doctor.experience_years} Years` : null
       })));

@@ -111,7 +111,15 @@ export default function Header({ scrollOffset }) {
       style={[
         styles.container,
         {
-          transform: [{ translateY: scrollOffset }]
+          transform: [
+            {
+              translateY: scrollOffset.interpolate({
+                inputRange: [0, 170],
+                outputRange: [0, -170],
+                extrapolate: 'clamp'
+              })
+            }
+          ]
         }
       ]}
     >
@@ -210,7 +218,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
     padding: 15,
-    height: 170, // Increased height
+    height: 180, // Increased height
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -224,8 +232,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
+    borderBottomLeftRadius: 45,
+    borderBottomRightRadius: 45,
   },
   contentContainer: {
     marginBottom: 5, // Reduced margin

@@ -293,9 +293,9 @@ export default function Home() {
     });
   }, [router]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || isLoading) {  // Added isLoading check here
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.pageLoadingContainer}>
         <LoadingAnimation />
       </View>
     );
@@ -303,19 +303,14 @@ export default function Home() {
 
   return (
     <View style={styles.container}>
-      <Header scrollOffset={headerTranslateY} />
+      <Header scrollOffset={scrollY} />
       <Animated.ScrollView 
-        style={[
-          styles.scrollView, 
-          { 
-            marginTop: 170, // Match header height
-          }
-        ]}
+        style={[styles.scrollView]}
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <View style={styles.section}>
+        <View style={[styles.section, styles.topSection]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle]}>Specialties</Text>
             <TouchableOpacity onPress={() => router.push("speciality/all-specialties")}>
@@ -344,20 +339,15 @@ export default function Home() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle]}>Popular Doctors</Text>
-            {/* Removed See All button */}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.doctorsScroll}>
-            {isLoadingDoctors ? (
-              <LoadingAnimation />
-            ) : (
-              popularDoctors.map((doctor) => (
-                <DoctorCard
-                  key={doctor.id}
-                  doctor={doctor}
-                  onPress={() => handleDoctorPress(doctor)}
-                />
-              ))
-            )}
+            {popularDoctors.map((doctor) => (
+              <DoctorCard
+                key={doctor.id}
+                doctor={doctor}
+                onPress={() => handleDoctorPress(doctor)}
+              />
+            ))}
           </ScrollView>
         </View>
 
@@ -380,55 +370,58 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#fff", // Changed to white for consistency
   },
-  loadingContainer: {
+  pageLoadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: '#fff',
   },
   scrollView: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#fff',
   },
   scrollContent: {
-    paddingTop: 35, // Increased gap between header and content
+    paddingTop: 180, // Increased for better spacing
     paddingBottom: 20,
   },
   section: {
-    marginTop: 0, // Removed extra top margin
-    marginBottom: 20,
+    marginBottom: 24, // Increased margin
+    backgroundColor: '#fff',
+    paddingVertical: 16, // Added vertical padding
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 16, // Increased margin
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22, // Increased size
     fontFamily: 'Inter_600SemiBold',
-    color: "#000",
+    color: "#1a1a1a", // Darker color
   },
   seeAll: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium', // Changed to medium weight
     color: "#3B39E4",
   },
   specialtyScroll: {
     paddingHorizontal: 20,
+    paddingBottom: 8, // Added bottom padding
   },
   specialtyContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 10,
-    height: 60,
-    width: 180,
-    padding: 10,
-    marginBottom: 10,
-    borderRadius: 30,
-    backgroundColor: "#F5F5F5",
+    marginRight: 12, // Changed from horizontal margin
+    marginLeft: 0,
+    height: 64, // Slightly bigger
+    width: 190, // Slightly wider
+    padding: 12,
+    borderRadius: 32,
+    backgroundColor: "#F8F9FA",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -437,13 +430,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   specialtyIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44, // Slightly bigger
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#3B39E4",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 14,
   },
   specialtyTextContainer: {
     flex: 1,
@@ -451,22 +444,25 @@ const styles = StyleSheet.create({
   specialtyName: {
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
-    color: "#000",
+    color: "#1a1a1a",
     marginBottom: 4,
   },
   doctorsCount: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Inter_400Regular',
     color: "#666",
   },
   doctorsScroll: {
     paddingHorizontal: 20,
+    paddingBottom: 8,
   },
   hospitalSection: {
     marginBottom: 24,
+    backgroundColor: '#fff',
+    paddingTop: 16,
   },
   hospitalCardsContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20, // Increased padding
     paddingTop: 8,
   },
   hospitalCardContainer: {
@@ -476,9 +472,27 @@ const styles = StyleSheet.create({
       width: 0,
       height: 4,
     },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 5,
+  },
+  topSection: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingTop: 20, // Increased padding
+    marginTop: 10, // Added small gap
+    elevation: 0, // Removed elevation
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -3,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    paddingBottom: 16, // Added bottom padding
+    borderBottomWidth: 0, // Added to ensure no bottom border
+    borderBottomColor: 'transparent', // Added to ensure no bottom border
   },
   hospitalCard: {
     height: 180,
@@ -577,5 +591,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter_500Medium',
     color: '#666',
-  }
+  },
 })
