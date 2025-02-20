@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { handleScroll } from '../_layout';
+import defaultAvatar from '../../../assets/default-avatar.png';
+import LoadingAnimation from '../../../components/LoadingAnimation';
+import { fetchDoctorById, transformDoctorData } from '../../../services/doctorService';
 
 // Sample doctors data (combine all doctors from hospitals)
 const doctors = [
@@ -41,16 +44,159 @@ const doctors = [
   // ... add other doctors
 ];
 
-export default function DoctorDetail() {
-  const { id } = useLocalSearchParams();
-  const router = useRouter();
-  
-  const doctor = doctors.find(d => d.id === id);
+// Add default doctor structure
+const defaultDoctor = {
+  id: '',
+  name: 'Unknown Doctor',
+  specialty: 'General Medicine',
+  image: null,
+  experience: 'N/A',
+  rating: 0,
+  qualifications: '',
+  languages: [],
+  consultationFee: 'N/A',
+  about: 'Information not available',
+  specializations: [],
+  availability: {
+    monday: '',
+    tuesday: '',
+    wednesday: '',
+    thursday: '',
+    friday: '',
+    saturday: ''
+  },
+  hospital: {
+    id: '',
+    name: 'Unknown Hospital',
+    location: 'Location not available'
+  }
+};
 
-  if (!doctor) {
+export default function DoctorDetail() {
+  const params = useLocalSearchParams();
+  const router = useRouter();
+  // Initialize doctor state with defaultDoctor
+  const [doctor, setDoctor] = useState(defaultDoctor);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Update the useMemo with better error handling
+  const parsedDoctorData = useMemo(() => {
+    if (!params?.doctorData) return defaultDoctor;
+    try {
+      const parsed = JSON.parse(params.doctorData) || {};
+      return {
+        ...defaultDoctor,
+        ...parsed,
+        hospital: { 
+          ...defaultDoctor.hospital, 
+          ...(parsed?.hospital || {}) 
+        },
+        availability: { 
+          ...defaultDoctor.availability, 
+          ...(parsed?.availability || {}) 
+        },
+        specializations: parsed?.specializations || [],
+        languages: parsed?.languages || []
+      };
+    } catch (e) {
+      console.error('Error parsing doctor data:', e);
+      return defaultDoctor;
+    }
+  }, [params?.doctorData]);
+
+  useEffect(() => {
+    const loadDoctorData = async () => {
+      try {
+        setIsLoading(true);
+        let doctorInfo = defaultDoctor;
+
+        if (params?.doctorData) {
+          try {
+            const parsed = JSON.parse(params.doctorData) || {};
+            doctorInfo = {
+              ...defaultDoctor,
+              ...parsed,
+              hospital: { 
+                ...defaultDoctor.hospital, 
+                ...(parsed?.hospital || {}) 
+              },
+              availability: { 
+                ...defaultDoctor.availability, 
+                ...(parsed?.availability || {}) 
+              },
+              specializations: parsed?.specializations || [],
+              languages: parsed?.languages || []
+            };
+          } catch (e) {
+            console.error('Error parsing doctor data:', e);
+          }
+        } else if (params?.id) {
+          const rawDoctorData = await fetchDoctorById(params.id);
+          if (rawDoctorData) {
+            const transformed = transformDoctorData(rawDoctorData);
+            doctorInfo = {
+              ...defaultDoctor,
+              ...transformed,
+              hospital: { 
+                ...defaultDoctor.hospital, 
+                ...(transformed?.hospital || {}) 
+              },
+              availability: { 
+                ...defaultDoctor.availability, 
+                ...(transformed?.availability || {}) 
+              }
+            };
+          }
+        }
+
+        setDoctor(doctorInfo);
+        setError(null);
+      } catch (err) {
+        setError(err.message);
+        console.error('Error loading doctor:', err);
+        setDoctor(defaultDoctor);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDoctorData();
+  }, [params?.id, params?.doctorData]);
+
+  // Add safety check before rendering
+  if (!doctor || typeof doctor !== 'object') {
     return (
-      <View style={styles.container}>
-        <Text>Doctor not found</Text>
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.errorText}>Invalid doctor data</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <LoadingAnimation />
+      </View>
+    );
+  }
+
+  if (error || !doctor) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.errorText}>Could not load doctor information</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -72,7 +218,11 @@ export default function DoctorDetail() {
         scrollEventThrottle={16}
       >
         <View style={styles.header}>
-          <Image source={doctor.image} style={styles.doctorImage} />
+          <Image 
+            source={doctor.image ? doctor.image : defaultAvatar} 
+            style={styles.doctorImage}
+            defaultSource={defaultAvatar}
+          />
           <View style={styles.overlay} />
           <View style={styles.headerContent}>
             <Text style={styles.name}>{doctor.name}</Text>
@@ -320,5 +470,25 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     opacity: 0.9,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#3B39E4',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

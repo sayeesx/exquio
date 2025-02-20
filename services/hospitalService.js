@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '../utils/supabase';
 import { kottakkalHospitals } from '../data/hospitals';
 
 const DEFAULT_HOSPITAL_IMAGE = 'https://placehold.co/600x400/png?text=Hospital';

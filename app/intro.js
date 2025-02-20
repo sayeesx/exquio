@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { View, StyleSheet, TouchableOpacity, Dimensions, Animated, Easing, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
+import { BlurView } from 'expo-blur';
 import { useFonts, Inter_700Bold } from '@expo-google-fonts/inter';
 
 const { width, height } = Dimensions.get("window");
@@ -21,6 +21,8 @@ const logos = [
   require("../assets/hospital-logos/hms.png"),
 ];
 
+const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
+
 export default function AnimatedLogo() {
   const router = useRouter();
   const carouselPosition = useRef(new Animated.Value(0)).current;
@@ -28,6 +30,7 @@ export default function AnimatedLogo() {
   const buttonScale = useRef(new Animated.Value(1)).current;
   const signInArrowRotation = useRef(new Animated.Value(0)).current;
   const signUpArrowRotation = useRef(new Animated.Value(0)).current;
+  const blurIntensity = useRef(new Animated.Value(100)).current; // increased from 40 to 100
 
   const [fontsLoaded] = useFonts({
     Inter_700Bold,
@@ -41,10 +44,19 @@ export default function AnimatedLogo() {
     Animated.parallel([
       Animated.timing(textFadeIn, {
         toValue: 1,
-        duration: 2500,
+        duration: 3500, // increased from 2500
         easing: Easing.bezier(0.4, 0, 0.2, 1),
         useNativeDriver: true,
       }),
+      // Slower, smoother blur animation
+      Animated.spring(blurIntensity, {
+        toValue: 0,
+        duration: 4000, // increased from 3000
+        delay: 800,    // increased from 300
+        friction: 90,  // increased from 60
+        tension: 15,   // decreased from 20
+        useNativeDriver: false,
+      })
     ]).start();
 
     const animateCarousel = () => {
@@ -133,29 +145,24 @@ export default function AnimatedLogo() {
     <View style={styles.container}>
       <LinearGradient colors={["#000033", "#000"]} style={styles.gradient} />
 
-      {/* Animated Text Container */}
-      <Animated.View
-        style={[
-          styles.textContainer,
-          {
-            opacity: textFadeIn,
-            transform: [
+      <View style={styles.textContainer}>
+        <AnimatedBlurView
+          intensity={blurIntensity}
+          tint="dark"
+          style={styles.blurContainer}
+        >
+          <Animated.Text
+            style={[
+              styles.heading,
               {
-                translateY: textFadeIn.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [20, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
-          <Text style={styles.heading}>
+                opacity: textFadeIn
+              }
+            ]}
+          >
             Book Doctors in Kottakkal
-          </Text>
-        </BlurView>
-      </Animated.View>
+          </Animated.Text>
+        </AnimatedBlurView>
+      </View>
 
       {/* Carousel Container */}
       <View style={styles.carouselWrapper}>
@@ -282,9 +289,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   blurContainer: {
-    padding: 20,
     borderRadius: 15,
     overflow: 'hidden',
+    padding: 20,
+    backgroundColor: 'transparent'
   },
   heading: {
     fontFamily: 'Inter_700Bold',

@@ -17,13 +17,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import Icon from "react-native-vector-icons/MaterialCommunityIcons"
 import { BlurView } from "expo-blur"
 import { useFonts, Inter_700Bold, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter'
-import { specialties, popularDoctors } from '../data/constants'
+import { specialties } from '../data/constants'
 import { supabase } from '../../lib/supabase'
 import { SkeletonImage } from '../../hooks/SkeletonImage'
 import Header from '../../components/header'
 import { HospitalCardSkeleton } from '../../components/HospitalCardSkeleton';
 import { secureLog } from '../../utils/secureLogging';
 import DoctorCard from '../../components/DoctorCard';
+import LoadingAnimation from '../../components/LoadingAnimation'
+import { fetchDoctors, transformDoctorData } from '../../services/doctorService';
 
 const { width } = Dimensions.get("window")
 
@@ -118,6 +120,43 @@ export default function Home() {
   const [showEmergencyPopup, setShowEmergencyPopup] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hospitalData, setHospitalData] = useState([])
+  const [popularDoctors, setPopularDoctors] = useState([]);
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const lastScrollY = useRef(0);
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { 
+      useNativeDriver: true,
+      listener: ({ nativeEvent }) => {
+        const currentScrollY = nativeEvent.contentOffset.y;
+        const headerHeight = 180;
+        const hideAmount = headerHeight * 0.7; // Only hide 70% of header
+        
+        if (currentScrollY > lastScrollY.current && currentScrollY > headerHeight) {
+          // Scrolling down - hide header partially
+          Animated.spring(headerTranslateY, {
+            toValue: -hideAmount,
+            useNativeDriver: true,
+            tension: 80,
+            friction: 10
+          }).start();
+        } else if (currentScrollY < lastScrollY.current) {
+          // Scrolling up - show header
+          Animated.spring(headerTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 80,
+            friction: 10
+          }).start();
+        }
+        
+        lastScrollY.current = currentScrollY;
+      }
+    }
+  );
 
   const hospitalCardAnimations = useRef([]).current
 
@@ -156,6 +195,18 @@ export default function Home() {
       console.error("Failed to fetch hospital data:", error.message); // Only log error message
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchPopularDoctors = useCallback(async () => {
+    try {
+      setIsLoadingDoctors(true);
+      const data = await fetchDoctors(4); // Changed to fetch only 4 doctors
+      setPopularDoctors(data.map(transformDoctorData));
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    } finally {
+      setIsLoadingDoctors(false);
     }
   }, []);
 
@@ -232,20 +283,38 @@ export default function Home() {
   useEffect(() => {
     fetchHospitalData()
     loadUserData()
-  }, [fetchHospitalData, loadUserData])
+    fetchPopularDoctors();
+  }, [fetchHospitalData, loadUserData, fetchPopularDoctors])
+
+  const handleDoctorPress = useCallback((doctor) => {
+    router.push({
+      pathname: `/doctors/${doctor.id}`,
+      params: { doctorData: JSON.stringify(doctor) }
+    });
+  }, [router]);
 
   if (!fontsLoaded) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Loading...</Text>
+        <LoadingAnimation />
       </View>
-    )
+    );
   }
 
   return (
     <View style={styles.container}>
-      <Header />
-      <ScrollView style={styles.scrollView}>
+      <Header scrollOffset={headerTranslateY} />
+      <Animated.ScrollView 
+        style={[
+          styles.scrollView, 
+          { 
+            marginTop: 170, // Match header height
+          }
+        ]}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle]}>Specialties</Text>
@@ -275,18 +344,20 @@ export default function Home() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle]}>Popular Doctors</Text>
-            <TouchableOpacity onPress={() => router.push('/doctors')}>
-              <Text style={[styles.seeAll]}>See All</Text>
-            </TouchableOpacity>
+            {/* Removed See All button */}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.doctorsScroll}>
-            {popularDoctors.map((doctor) => (
-              <DoctorCard
-                key={doctor.id}
-                doctor={doctor}
-                onPress={(doctor) => router.push(`/doctors/${doctor.id}`)}
-              />
-            ))}
+            {isLoadingDoctors ? (
+              <LoadingAnimation />
+            ) : (
+              popularDoctors.map((doctor) => (
+                <DoctorCard
+                  key={doctor.id}
+                  doctor={doctor}
+                  onPress={() => handleDoctorPress(doctor)}
+                />
+              ))
+            )}
           </ScrollView>
         </View>
 
@@ -301,7 +372,7 @@ export default function Home() {
             {renderHospitalCardsSection()}
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -318,9 +389,15 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scrollContent: {
+    paddingTop: 35, // Increased gap between header and content
+    paddingBottom: 20,
   },
   section: {
-    marginBottom: 24,
+    marginTop: 0, // Removed extra top margin
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: "row",

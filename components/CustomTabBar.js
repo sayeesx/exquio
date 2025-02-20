@@ -1,130 +1,78 @@
 import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { BlurView } from "expo-blur";
-import Animated, { useAnimatedStyle, withSpring, useSharedValue, withSequence } from "react-native-reanimated";
-import { Feather, MaterialIcons, FontAwesome } from "@expo/vector-icons";
-import React, { createContext, useState, useContext } from 'react';
+import Animated, { 
+  useAnimatedStyle, 
+  withSpring,
+  useSharedValue,
+  Layout,
+  FadeIn,
+} from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
+import React from 'react';
 
-// Create a context for tab bar visibility
-export const TabBarContext = createContext({
-  isTabBarVisible: true,
-  setTabBarVisible: () => {},
-});
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
-// Custom hook to manage tab bar visibility
-export const useTabBar = () => {
-  const context = useContext(TabBarContext);
-  if (!context) {
-    throw new Error('useTabBar must be used within a TabBarProvider');
-  }
-  return context;
-};
+const TabButton = ({ route, icon, isActive, onPress }) => {
+  const scale = useSharedValue(1);
 
-// Provider component to wrap the app
-export const TabBarProvider = ({ children }) => {
-  const [isTabBarVisible, setIsTabBarVisible] = useState(true);
-
-  const setTabBarVisible = (visible) => {
-    setIsTabBarVisible(visible);
+  const handlePress = () => {
+    scale.value = withSpring(0.9, {}, () => {
+      scale.value = withSpring(1);
+    });
+    onPress();
   };
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <TabBarContext.Provider value={{ isTabBarVisible, setTabBarVisible }}>
-      {children}
-    </TabBarContext.Provider>
+    <AnimatedTouchableOpacity
+      style={[
+        styles.tabButton,
+        isActive && styles.activeButton,
+        animatedStyle
+      ]}
+      onPress={handlePress}
+      layout={Layout.springify()}
+    >
+      <Ionicons
+        name={icon}
+        size={22}
+        color={isActive ? "#fff" : "rgba(0, 0, 0, 0.5)"}
+      />
+    </AnimatedTouchableOpacity>
   );
 };
 
-// Create an animated version of TouchableOpacity
-const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
-
-const CustomTabBar = ({ state, descriptors, navigation }) => {
+const CustomTabBar = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { isTabBarVisible } = useTabBar();
-
-  // Shared values for animations
-  const scale = useSharedValue(1);
-
-  const handlePress = (route) => {
-    // Animate the button press
-    scale.value = withSequence(
-      withSpring(0.9, { damping: 10, stiffness: 400 }),
-      withSpring(1, { damping: 15, stiffness: 400 })
-    );
-
-    // Navigate to the route after the animation
-    setTimeout(() => {
-      router.push(route);
-    }, 150); // Slight delay to match the animation duration
-  };
-
-  const getIconColor = (route) => (pathname.startsWith(`/${route}`) ? "#fff" : "rgba(0, 0, 0, 0.5)");
 
   const isRouteActive = (route) => pathname.startsWith(`/${route}`);
 
-  if (!isTabBarVisible) {
-    return null; // Don't render tab bar when not visible
-  }
+  const tabs = [
+    { route: "/hospitals", icon: "medical-outline" },
+    { route: "appointment", icon: "calendar-clear-outline" },
+    { route: "home", icon: "home-outline" },
+    { route: "lab-records", icon: "flask-outline" },
+    { route: "profile", icon: "person-outline" }
+  ];
 
   return (
     <View style={styles.tabBar}>
       <BlurView intensity={80} style={styles.blurContainer}>
         <View style={styles.content}>
-          {/* Hospital Button */}
-          <AnimatedTouchableOpacity
-            style={[
-              styles.tabButton,
-              isRouteActive("hospital") && styles.activeButton,
-            ]}
-            onPress={() => handlePress("/hospitals")}
-          >
-            <MaterialIcons name="local-hospital" size={28} color={getIconColor("hospital")} />
-          </AnimatedTouchableOpacity>
-
-          {/* Bookings Button */}
-          <AnimatedTouchableOpacity
-            style={[
-              styles.tabButton,
-              isRouteActive("appointment") && styles.activeButton,
-            ]}
-            onPress={() => handlePress("appointment")}
-          >
-            <Feather name="calendar" size={28} color={getIconColor("appointment")} />
-          </AnimatedTouchableOpacity>
-
-          {/* Home Button (Centered) */}
-          <AnimatedTouchableOpacity
-            style={[
-              styles.centerButton,
-              isRouteActive("home") && styles.activeButton,
-            ]}
-            onPress={() => handlePress("home")}
-          >
-            <Feather name="home" size={28} color={isRouteActive("home") ? "#fff" : "rgba(0, 0, 0, 0.5)"} />
-          </AnimatedTouchableOpacity>
-
-          {/* Lab Records Button */}
-          <AnimatedTouchableOpacity
-            style={[
-              styles.tabButton,
-              isRouteActive("lab-records") && styles.activeButton,
-            ]}
-            onPress={() => handlePress("lab-records")}
-          >
-            <FontAwesome name="flask" size={28} color={getIconColor("lab-records")} />
-          </AnimatedTouchableOpacity>
-
-          {/* Profile Button */}
-          <AnimatedTouchableOpacity
-            style={[
-              styles.tabButton,
-              isRouteActive("profile") && styles.activeButton,
-            ]}
-            onPress={() => handlePress("profile")}
-          >
-            <Feather name="user" size={28} color={getIconColor("profile")} />
-          </AnimatedTouchableOpacity>
+          {tabs.map((tab) => (
+            <TabButton
+              key={tab.route}
+              route={tab.route}
+              icon={tab.icon}
+              isActive={isRouteActive(tab.route.replace("/", ""))}
+              onPress={() => router.push(tab.route)}
+            />
+          ))}
         </View>
       </BlurView>
     </View>
@@ -135,11 +83,11 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    height: 60,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    height: 50,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    overflow: 'hidden',
     elevation: 8,
-    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: -2,
@@ -163,17 +111,23 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     padding: 8,
-    borderRadius: 32,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+    width: 44,
+    height: 44,
+    transform: [{ translateY: 0 }],
+    backfaceVisibility: 'hidden', // Reduces visual glitches
   },
   centerButton: {
     marginBottom: 0,
+    width: 48,
+    height: 48,
   },
   activeButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "#3b39e4",
     alignItems: "center",
     justifyContent: "center",
@@ -185,6 +139,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    transform: [{ translateY: -2 }], // Slight lift effect when active
   },
 });
 

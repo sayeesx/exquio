@@ -2,11 +2,12 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 const DoctorCard = ({ doctor, onPress }) => {
+  // Get the full image URL from Supabase storage
   const imageUrl = doctor.avatar_url
-    ? `${supabaseUrl}/storage/v1/object/public/doctor_avatars/${doctor.avatar_url}`
+    ? `${supabase.supabaseUrl}/storage/v1/object/public/doctor_avatars/${doctor.avatar_url}`
     : 'https://www.pngitem.com/pimgs/m/146-1468479_my-profile-icon-blank-profile-picture-circle-hd.png';
 
   const getSpecialtyIcon = (specialty) => {
@@ -15,6 +16,11 @@ const DoctorCard = ({ doctor, onPress }) => {
       case 'neurology': return 'brain';
       case 'pediatrics': return 'baby-face';
       case 'orthopedics': return 'bone';
+      case 'dermatology': return 'face-man';
+      case 'ophthalmology': return 'eye';
+      case 'dentistry': return 'tooth';
+      case 'psychiatry': return 'brain';
+      case 'general medicine': return 'doctor';
       default: return 'doctor';
     }
   };
@@ -23,7 +29,12 @@ const DoctorCard = ({ doctor, onPress }) => {
     <View style={styles.doctorCard}>
       <BlurView intensity={80} tint="light" style={styles.doctorCardContent}>
         <View style={styles.doctorImageContainer}>
-          <Image source={{ uri: imageUrl }} style={styles.doctorImage} resizeMode="cover" />
+          <Image 
+            source={{ uri: imageUrl }} 
+            style={styles.doctorImage} 
+            resizeMode="cover"
+            defaultSource={require('../assets/default-avatar.png')}
+          />
         </View>
         <View style={styles.doctorInfo}>
           <Text style={styles.doctorName} numberOfLines={1}>
@@ -31,12 +42,26 @@ const DoctorCard = ({ doctor, onPress }) => {
           </Text>
           <View style={styles.specialtyChip}>
             <Icon name={getSpecialtyIcon(doctor.specialty)} size={14} color="#3B39E4" />
-            <Text style={styles.specialtyText}>{doctor.specialty || 'General'}</Text>
+            <Text style={styles.specialtyText}>
+              {doctor.specialty || 'General Medicine'}
+            </Text>
           </View>
           <Text style={styles.fieldOfStudy} numberOfLines={2}>
             {doctor.qualification || 'Medical Professional'}
           </Text>
-          <TouchableOpacity style={styles.bookingButton} onPress={() => onPress(doctor)}>
+          <View style={styles.statsRow}>
+            <View style={styles.stat}>
+              <Icon name="star" size={12} color="#FFD700" />
+              <Text style={styles.statText}>{doctor.rating || '4.5'}</Text>
+            </View>
+            <Text style={styles.experience}>
+              {doctor.experience_years ? `${doctor.experience_years}+ Years` : 'Experienced'}
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.bookingButton} 
+            onPress={() => onPress(doctor)}
+          >
             <Text style={styles.bookingButtonText}>Book Now</Text>
             <Icon name="calendar-plus" size={16} color="#fff" />
           </TouchableOpacity>
@@ -113,6 +138,27 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  stat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statText: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    color: '#666',
+    marginLeft: 4,
+  },
+  experience: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: '#666',
   },
 });
 
