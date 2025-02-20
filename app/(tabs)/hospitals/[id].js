@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../../lib/supabase';
@@ -7,6 +7,7 @@ import { secureLog } from '../../../utils/secureLogging';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import StatCard from '../../../components/StatCard';
+import { DebugInfo } from '../../../components/DebugInfo';
 // Remove or comment out the BlurView import if it's causing issues
 // import { BlurView } from 'expo-blur';
 
@@ -25,7 +26,8 @@ const HospitalDetail = () => {
       setLoading(true);
       setError(null);
       
-      // First fetch hospital data
+      console.log('Fetching hospital with ID:', id); // Add debug log
+      
       const { data: hospitalData, error: hospitalError } = await supabase
         .from('hospitals')
         .select(`
@@ -56,12 +58,16 @@ const HospitalDetail = () => {
         .eq('id', id)
         .single();
 
-      if (hospitalError) throw hospitalError;
+      if (hospitalError) {
+        console.error('Supabase error:', hospitalError);
+        throw hospitalError;
+      }
 
-      // Transform the data to match the expected format
+      console.log('Hospital data received:', hospitalData);
+
       const transformedHospital = {
         ...hospitalData,
-        specialities: hospitalData.hospital_specialties?.map(hs => hs.specialty.name) || []
+        specialities: hospitalData?.hospital_specialties?.map(hs => hs.specialty.name) || []
       };
       
       setHospital(transformedHospital);
@@ -94,7 +100,7 @@ const HospitalDetail = () => {
         .limit(3);
 
       if (error) throw error;
-      
+
       setPopularDoctors(data?.map(doctor => ({
         ...doctor,
         specialty: doctor.specialty?.name,
@@ -125,7 +131,6 @@ const HospitalDetail = () => {
           },
           async (payload) => {
             console.log('Hospital detail update:', payload);
-            
             if (payload.eventType === 'UPDATE') {
               setHospital(payload.new);
             } else if (payload.eventType === 'DELETE') {
@@ -150,7 +155,6 @@ const HospitalDetail = () => {
           },
           async (payload) => {
             console.log('Doctors update:', payload);
-            
             // Refresh doctors list on any change
             const { data } = await supabase
               .from('doctors')
@@ -158,7 +162,6 @@ const HospitalDetail = () => {
               .eq('hospital_id', id)
               .order('rating', { ascending: false })
               .limit(3);
-            
             setDoctors(data || []);
           }
         )
@@ -193,6 +196,12 @@ const HospitalDetail = () => {
     }
   }, [id]);
 
+  const handleMapPress = () => {
+    if (hospital?.map_url) {
+      Linking.openURL(hospital.map_url);
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContainer]}>
@@ -221,289 +230,304 @@ const HospitalDetail = () => {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Hero Section */}
-      <View style={styles.heroContainer}>
-        <Image 
-          source={{ uri: hospital.image_url }}
-          style={styles.heroImage}
-          resizeMode="cover"
-        />
-        {/* Add Back Button */}
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={28} color="#fff" />
-        </TouchableOpacity>
-
+    <View style={styles.containerWrapper}>
+      <ScrollView style={[styles.container]} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
-          style={styles.gradient}
+          colors={['#F8FAFC', '#F1F5F9']}
+          style={styles.gradientBackground}
         >
-          {/* Logo positioned higher */}
-          {hospital.logo_url && (
-            <View style={styles.logoContainer}>
-              <Image
-                source={{ uri: hospital.logo_url }}
-                style={styles.hospitalLogo}
-                resizeMode="contain"
-              />
-            </View>
-          )}
-          
-          <View style={styles.headerInfo}>
-            <View style={styles.headerText}>
-              <Text style={styles.hospitalName}>{hospital.name}</Text>
-              <View style={styles.locationRow}>
-                <MaterialCommunityIcons name="map-marker" size={16} color="#fff" />
-                <Text style={styles.locationText}>{hospital.location}</Text>
-              </View>
-            </View>
-            
-            {/* Rating Badge positioned on top right */}
-            {hospital.rating > 0 && (
-              <View style={styles.ratingBadge}>
-                <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
-                <Text style={styles.ratingText}>{hospital.rating.toFixed(1)}</Text>
-              </View>
-            )}
+          {/* Hero Section */}
+          <View style={styles.heroWrapper}>
+            <Image 
+              source={{ uri: hospital?.image_url }}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
           </View>
-        </LinearGradient>
-      </View>
 
-      {/* Quick Stats */}
-      <MotiView style={styles.statsContainer}>
-        <StatCard 
-          icon={<MaterialCommunityIcons name="doctor" size={24} color="#6366F1" />}
-          value={hospital.doctors_count || 0}
-          label="Doctors"
-          delay={100}
-        />
-        <StatCard 
-          icon={<MaterialCommunityIcons name="bed" size={24} color="#6366F1" />}
-          value={hospital.bed_count || 0}
-          label="Beds"
-          delay={200}
-        />
-        <StatCard 
-          icon={<MaterialCommunityIcons name="hospital-building" size={24} color="#6366F1" />}
-          value={hospital.established_year || '-'}
-          label="Est. Year"
-          delay={300}
-        />
-      </MotiView>
-
-      {/* Content Sections */}
-      <View style={styles.content}>
-        {hospital.description && (
-          <MotiView 
-            style={styles.section}
-            from={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'timing', delay: 200 }}
-          >
-            <Text style={styles.sectionTitle}>About</Text>
-            <View style={styles.card}>
-              <Text style={styles.description}>{hospital.description}</Text>
-            </View>
-          </MotiView>
-        )}
-
-        {/* Working Hours */}
-        <MotiView 
-          style={styles.section}
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', delay: 200 }}
-        >
-          <Text style={styles.sectionTitle}>Working Hours</Text>
-          <View style={styles.workingHoursCard}>
-            <View style={styles.workingHoursRow}>
-              <MaterialCommunityIcons name="clock-outline" size={20} color="#666" />
-              <View style={styles.workingHoursInfo}>
-                <Text style={styles.workingHoursLabel}>Weekdays</Text>
-                <Text style={styles.workingHoursText}>{workingHours.weekdays}</Text>
-              </View>
-            </View>
-            <View style={styles.workingHoursRow}>
-              <MaterialCommunityIcons name="calendar" size={20} color="#666" />
-              <View style={styles.workingHoursInfo}>
-                <Text style={styles.workingHoursLabel}>Weekends</Text>
-                <Text style={styles.workingHoursText}>{workingHours.weekends}</Text>
-              </View>
-            </View>
-            {workingHours.emergency && (
-              <View style={[styles.workingHoursRow, styles.emergencyRow]}>
-                <MaterialCommunityIcons name="ambulance" size={20} color="#ff4444" />
-                <View style={styles.workingHoursInfo}>
-                  <Text style={[styles.workingHoursLabel, styles.emergencyLabel]}>Emergency</Text>
-                  <Text style={[styles.workingHoursText, styles.emergencyText]}>{workingHours.emergency}</Text>
-                </View>
-              </View>
-            )}
+          {/* Rating Badge - Moved below image */}
+          <View style={styles.ratingBadgeCenter}>
+            <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+            <Text style={styles.ratingText}>{hospital?.rating?.toFixed(1)}</Text>
           </View>
-        </MotiView>
 
-        {/* Facilities */}
-        {hospital.facilities && hospital.facilities.length > 0 && (
-          <MotiView 
-            style={styles.section}
-            from={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'timing', delay: 200 }}
-          >
-            <Text style={styles.sectionTitle}>Facilities</Text>
-            <View style={styles.facilitiesGrid}>
-              {hospital.facilities.map((facility, index) => (
-                <View key={index} style={styles.facilityItem}>
-                  <MaterialCommunityIcons name="check-circle" size={20} color="#6B4EFF" />
-                  <Text style={styles.facilityText}>{facility}</Text>
-                </View>
-              ))}
-            </View>
-          </MotiView>
-        )}
-
-        {/* Specialities */}
-        {hospital.specialities && hospital.specialities.length > 0 && (
-          <MotiView 
-            style={styles.section}
-            from={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'timing', delay: 200 }}
-          >
-            <Text style={styles.sectionTitle}>Specialities</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {hospital.specialities.map((speciality, index) => (
-                <View key={index} style={styles.specialityTag}>
-                  <Text style={styles.specialityText}>{speciality}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </MotiView>
-        )}
-
-        {/* Additional Features */}
-        <MotiView 
-          style={styles.section}
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', delay: 200 }}
-        >
-          <Text style={styles.sectionTitle}>Additional Features</Text>
-          <View style={styles.featuresGrid}>
-            {hospital.insurance_accepted && (
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="shield-check" size={24} color="#6B4EFF" />
-                <Text style={styles.featureText}>Insurance Accepted</Text>
-              </View>
-            )}
-            {hospital.parking_available && (
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="parking" size={24} color="#6B4EFF" />
-                <Text style={styles.featureText}>Parking Available</Text>
-              </View>
-            )}
-            {hospital.ambulance_available && (
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="ambulance" size={24} color="#6B4EFF" />
-                <Text style={styles.featureText}>24/7 Ambulance</Text>
-              </View>
-            )}
-          </View>
-        </MotiView>
-
-        {/* Popular Doctors */}
-        {popularDoctors.length > 0 && (
-          <MotiView 
-            style={styles.section}
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', delay: 500 }}
-          >
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Popular Doctors</Text>
+          <View style={styles.headerContent}>
+            <View style={styles.headerRow}>
+              <Text style={styles.hospitalName}>{hospital?.name}</Text>
               <TouchableOpacity 
-                style={styles.seeAllButton}
-                onPress={() => router.push(`/doctors?hospital_id=${id}`)}
+                style={styles.mapLink}
+                onPress={handleMapPress}
               >
-                <Text style={styles.seeAllText}>See All</Text>
+                <MaterialCommunityIcons name="map-marker" size={16} color="#0284C7" />
+                <Text style={styles.mapLinkText}>Show map</Text>
               </TouchableOpacity>
             </View>
+          </View>
 
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.doctorsScroll}
+          {/* Stats Section */}
+          <View style={styles.statsContainer}>
+            <MotiView 
+              style={styles.statCard}
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 100 }}
             >
-              {popularDoctors.map((doctor, index) => (
-                <MotiView
-                  key={doctor.id}
-                  from={{ opacity: 0, scale: 0.9, translateX: 20 }}
-                  animate={{ opacity: 1, scale: 1, translateX: 0 }}
-                  transition={{ 
-                    type: 'spring',
-                    delay: 600 + (index * 100),
-                    damping: 15
-                  }}
-                >
-                  <TouchableOpacity 
-                    style={styles.doctorCard}
-                    onPress={() => router.push(`/doctors/${doctor.id}`)}
-                  >
-                    <Image 
-                      source={{ uri: doctor.avatar_url }}
-                      style={styles.doctorImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.doctorInfo}>
-                      <Text style={styles.doctorName}>{doctor.name}</Text>
-                      <Text style={styles.doctorQualification}>{doctor.qualification}</Text>
-                      <Text style={styles.doctorSpeciality}>{doctor.specialty}</Text>
-                      <View style={styles.doctorStats}>
-                        <View style={styles.ratingContainer}>
-                          <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
-                          <Text style={styles.ratingText}>{doctor.rating?.toFixed(1)}</Text>
-                        </View>
-                        {doctor.experience_years && (
-                          <Text style={styles.experienceText}>{doctor.experience_years}Y exp.</Text>
-                        )}
-                        {doctor.consultation_fee && (
-                          <Text style={styles.feeText}>₹{doctor.consultation_fee}</Text>
-                        )}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                </MotiView>
-              ))}
-            </ScrollView>
-          </MotiView>
-        )}
+              <MaterialCommunityIcons name="doctor" size={24} color="#6366F1" />
+              <Text style={styles.statValue}>{hospital?.doctors_count || 0}</Text>
+              <Text style={styles.statLabel}>Doctors</Text>
+            </MotiView>
 
-        {/* Contact Information */}
-        <MotiView 
-          style={styles.section}
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', delay: 200 }}
+            <MotiView 
+              style={styles.statCard}
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 200 }}
+            >
+              <MaterialCommunityIcons name="bed" size={24} color="#6366F1" />
+              <Text style={styles.statValue}>{hospital?.bed_count || 0}</Text>
+              <Text style={styles.statLabel}>Beds</Text>
+            </MotiView>
+
+            <MotiView 
+              style={styles.statCard}
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 300 }}
+            >
+              <MaterialCommunityIcons name="hospital-building" size={24} color="#6366F1" />
+              <Text style={styles.statValue}>{hospital?.established_year || '-'}</Text>
+              <Text style={styles.statLabel}>Est. Year</Text>
+            </MotiView>
+          </View>
+
+          {/* Content Sections */}
+          <View style={styles.content}>
+            {hospital.description && (
+              <MotiView 
+                style={styles.section}
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'timing', delay: 200 }}
+              >
+                <Text style={styles.sectionTitle}>About</Text>
+                <View style={styles.card}>
+                  <Text style={styles.description}>{hospital.description}</Text>
+                </View>
+              </MotiView>
+            )}
+
+            {/* Working Hours */}
+            <MotiView 
+              style={styles.section}
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'timing', delay: 200 }}
+            >
+              <Text style={styles.sectionTitle}>Working Hours</Text>
+              <View style={styles.workingHoursCard}>
+                <View style={styles.workingHoursRow}>
+                  <MaterialCommunityIcons name="clock-outline" size={20} color="#666" />
+                  <View style={styles.workingHoursInfo}>
+                    <Text style={styles.workingHoursLabel}>Weekdays</Text>
+                    <Text style={styles.workingHoursText}>{workingHours.weekdays}</Text>
+                  </View>
+                </View>
+                <View style={styles.workingHoursRow}>
+                  <MaterialCommunityIcons name="calendar" size={20} color="#666" />
+                  <View style={styles.workingHoursInfo}>
+                    <Text style={styles.workingHoursLabel}>Weekends</Text>
+                    <Text style={styles.workingHoursText}>{workingHours.weekends}</Text>
+                  </View>
+                </View>
+                {workingHours.emergency && (
+                  <View style={[styles.workingHoursRow, styles.emergencyRow]}>
+                    <MaterialCommunityIcons name="ambulance" size={20} color="#ff4444" />
+                    <View style={styles.workingHoursInfo}>
+                      <Text style={[styles.workingHoursLabel, styles.emergencyLabel]}>Emergency</Text>
+                      <Text style={[styles.workingHoursText, styles.emergencyText]}>{workingHours.emergency}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </MotiView>
+
+            {/* Facilities */}
+            {hospital.facilities && hospital.facilities.length > 0 && (
+              <MotiView 
+                style={styles.section}
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'timing', delay: 200 }}
+              >
+                <Text style={styles.sectionTitle}>Facilities</Text>
+                <View style={styles.facilitiesGrid}>
+                  {hospital.facilities.map((facility, index) => (
+                    <View key={index} style={styles.facilityItem}>
+                      <MaterialCommunityIcons name="check-circle" size={20} color="#6B4EFF" />
+                      <Text style={styles.facilityText}>{facility}</Text>
+                    </View>
+                  ))}
+                </View>
+              </MotiView>
+            )}
+
+            {/* Specialities */}
+            {hospital.specialities && hospital.specialities.length > 0 && (
+              <MotiView 
+                style={styles.section}
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'timing', delay: 200 }}
+              >
+                <Text style={styles.sectionTitle}>Specialities</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {hospital.specialities.map((speciality, index) => (
+                    <View key={index} style={styles.specialityTag}>
+                      <Text style={styles.specialityText}>{speciality}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </MotiView>
+            )}
+
+            {/* Additional Features */}
+            <MotiView 
+              style={styles.section}
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'timing', delay: 200 }}
+            >
+              <Text style={styles.sectionTitle}>Additional Features</Text>
+              <View style={styles.featuresGrid}>
+                {hospital.insurance_accepted && (
+                  <View style={styles.featureItem}>
+                    <MaterialCommunityIcons name="shield-check" size={24} color="#6B4EFF" />
+                    <Text style={styles.featureText}>Insurance Accepted</Text>
+                  </View>
+                )}
+                {hospital.parking_available && (
+                  <View style={styles.featureItem}>
+                    <MaterialCommunityIcons name="parking" size={24} color="#6B4EFF" />
+                    <Text style={styles.featureText}>Parking Available</Text>
+                  </View>
+                )}
+                {hospital.ambulance_available && (
+                  <View style={styles.featureItem}>
+                    <MaterialCommunityIcons name="ambulance" size={24} color="#6B4EFF" />
+                    <Text style={styles.featureText}>24/7 Ambulance</Text>
+                  </View>
+                )}
+              </View>
+            </MotiView>
+
+            {/* Popular Doctors */}
+            {popularDoctors.length > 0 && (
+              <MotiView 
+                style={styles.section}
+                from={{ opacity: 0, translateY: 20 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'spring', delay: 500 }}
+              >
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Popular Doctors</Text>
+                  <TouchableOpacity 
+                    style={styles.seeAllButton}
+                    onPress={() => router.push(`/doctors?hospital_id=${id}`)}
+                  >
+                    <Text style={styles.seeAllText}>See All</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.doctorsScroll}
+                >
+                  {popularDoctors.map((doctor, index) => (
+                    <MotiView
+                      key={doctor.id}
+                      from={{ opacity: 0, scale: 0.9, translateX: 20 }}
+                      animate={{ opacity: 1, scale: 1, translateX: 0 }}
+                      transition={{ 
+                        type: 'spring', 
+                        delay: 600 + (index * 100),
+                        damping: 15
+                      }}
+                    >
+                      <TouchableOpacity 
+                        style={styles.doctorCard}
+                        onPress={() => router.push(`/doctors/${doctor.id}`)}
+                      >
+                        <Image 
+                          source={{ uri: doctor.avatar_url }}
+                          style={styles.doctorImage}
+                          resizeMode="cover"
+                        />
+                        <View style={styles.doctorInfo}>
+                          <Text style={styles.doctorName}>{doctor.name}</Text>
+                          <Text style={styles.doctorQualification}>{doctor.qualification}</Text>
+                          <Text style={styles.doctorSpeciality}>{doctor.specialty}</Text>
+                          <View style={styles.doctorStats}>
+                            <View style={styles.ratingContainer}>
+                              <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+                              <Text style={styles.ratingText}>{doctor.rating?.toFixed(1)}</Text>
+                            </View>
+                            {doctor.experience_years && (
+                              <Text style={styles.experienceText}>{doctor.experience_years}Y exp.</Text>
+                            )}
+                            {doctor.consultation_fee && (
+                              <Text style={styles.feeText}>₹{doctor.consultation_fee}</Text>
+                            )}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    </MotiView>
+                  ))}
+                </ScrollView>
+              </MotiView>
+            )}
+
+            {/* Contact Information */}
+            <MotiView 
+              style={styles.section}
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'timing', delay: 200 }}
+            >
+              <Text style={styles.sectionTitle}>Contact Information</Text>
+              {hospital.emergency_contact && (
+                <TouchableOpacity style={styles.contactButton}>
+                  <MaterialCommunityIcons name="phone" size={20} color="#fff" />
+                  <Text style={styles.contactButtonText}>{hospital.emergency_contact}</Text>
+                </TouchableOpacity>
+              )}
+              {hospital.email && (
+                <TouchableOpacity style={styles.contactButton}>
+                  <MaterialCommunityIcons name="email" size={20} color="#fff" />
+                  <Text style={styles.contactButtonText}>{hospital.email}</Text>
+                </TouchableOpacity>
+              )}
+            </MotiView>
+          </View>
+        </LinearGradient>
+      </ScrollView>
+
+      {/* Book Now Button - Fixed at bottom */}
+      <View style={styles.bottomButtonContainer}>
+        <TouchableOpacity 
+          style={styles.bookNowButton}
+          onPress={() => {/* Handle booking */}}
         >
-          <Text style={styles.sectionTitle}>Contact Information</Text>
-          {hospital.emergency_contact && (
-            <TouchableOpacity style={styles.contactButton}>
-              <MaterialCommunityIcons name="phone" size={20} color="#fff" />
-              <Text style={styles.contactButtonText}>{hospital.emergency_contact}</Text>
-            </TouchableOpacity>
-          )}
-          {hospital.email && (
-            <TouchableOpacity style={styles.contactButton}>
-              <MaterialCommunityIcons name="email" size={20} color="#fff" />
-              <Text style={styles.contactButtonText}>{hospital.email}</Text>
-            </TouchableOpacity>
-          )}
-        </MotiView>
+          <Text style={styles.bookNowText}>Book Now</Text>
+          <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+        </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -529,7 +553,7 @@ const newStyles = {
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
-  }
+  },
 };
 
 const additionalStyles = {
@@ -538,7 +562,6 @@ const additionalStyles = {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // ... rest of the existing styles ...
 };
 
 const styles = StyleSheet.create({
@@ -546,13 +569,145 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  heroContainer: {
-    height: 320,
+  gradientBackground: {
+    flex: 1,
+  },
+  heroWrapper: {
+    margin: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+    height: 200,
     position: 'relative',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   heroImage: {
     width: '100%',
     height: '100%',
+  },
+  headerContent: {
+    padding: 16,
+    marginTop: 8,
+  },
+  hospitalName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000000',
+    flex: 1,
+    marginRight: 16,
+  },
+  mapLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  ratingBadgeCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'center',
+    marginTop: -20,
+    zIndex: 1,
+  },
+  bottomButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  bookNowButton: {
+    backgroundColor: '#6B4EFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#6B4EFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    margin: 6,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  ratingBadge: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 16,
+    zIndex: 1,
+  },
+  ratingText: {
+    color: '#FFD700',
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  heroContainer: {
+    height: 320,
+    position: 'relative',
   },
   gradient: {
     position: 'absolute',
@@ -594,12 +749,6 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
   },
-  hospitalName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -609,20 +758,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 4,
     opacity: 0.9,
-  },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  ratingText: {
-    color: '#FFD700',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 4,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -876,10 +1011,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
@@ -894,6 +1026,16 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontWeight: '600',
     marginLeft: 8,
+  },
+  containerWrapper: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
   },
   ...newStyles,
   ...additionalStyles

@@ -241,11 +241,8 @@ export default function Hospitals() {
         throw new Error('Invalid hospital data');
       }
       
-      // Update the navigation path to match the file structure
-      router.push({
-        pathname: "/hospitals/[id]",
-        params: { id: hospital.id }
-      });
+      // Update the navigation path to include (tabs)
+      router.push(`/(tabs)/hospitals/${hospital.id}`);
     } catch (error) {
       console.error('Navigation error:', error);
       Alert.alert(

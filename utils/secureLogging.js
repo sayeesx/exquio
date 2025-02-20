@@ -1,16 +1,23 @@
+// Update the sensitiveFields array to include more fields
 const sensitiveFields = [
-  'email', 'password', 'phone', 'created_at', 'updated_at', 'last_login',
-  'auth_token', 'session_token', 'refresh_token', 'access_token',
-  'emergency_contact', 'id', 'doctors_count', 'bed_count', 'established_year',
-  'working_hours', 'facilities', 'specialities', 'insurance_accepted',
-  'image_url', 'logo_url', 'location' // Added location as sensitive
+  'created_at',
+  'id',
+  'phone_number',
+  'logo_url',
+  'is_available',
+  'location'
 ];
 
 const safeFields = [
-  'name',
-  'type',
-  'rating'
+  'name'
 ];
+
+const maskValue = (value, field) => {
+  if (field === 'name') {
+    return value.substring(0, 3) + '***';
+  }
+  return '[REDACTED]';
+};
 
 const sanitizeData = (data) => {
   if (!data) return data;
@@ -18,14 +25,11 @@ const sanitizeData = (data) => {
   if (Array.isArray(data)) {
     return data.map(item => {
       const sanitized = {};
-      safeFields.forEach(field => {
-        if (item[field]) {
-          // Mask part of the name for additional security
-          if (field === 'name') {
-            sanitized[field] = `${item[field].substring(0, 3)}***`;
-          } else {
-            sanitized[field] = item[field];
-          }
+      Object.keys(item).forEach(key => {
+        if (sensitiveFields.includes(key)) {
+          sanitized[key] = '[REDACTED]';
+        } else if (safeFields.includes(key)) {
+          sanitized[key] = maskValue(item[key], key);
         }
       });
       return sanitized;
@@ -34,41 +38,27 @@ const sanitizeData = (data) => {
   
   if (typeof data === 'object') {
     const sanitized = {};
-    safeFields.forEach(field => {
-      if (data[field]) {
-        // Mask part of the name for additional security
-        if (field === 'name') {
-          sanitized[field] = `${data[field].substring(0, 3)}***`;
-        } else {
-          sanitized[field] = data[field];
-        }
+    Object.keys(data).forEach(key => {
+      if (sensitiveFields.includes(key)) {
+        sanitized[key] = '[REDACTED]';
+      } else if (safeFields.includes(key)) {
+        sanitized[key] = maskValue(data[key], key);
       }
     });
     return sanitized;
   }
   
-  return data;
+  return '[REDACTED]';
 };
 
-export const secureLog = (message, data) => {
-  const sanitizedData = sanitizeData(data);
-  
-  if (!sanitizedData || Object.keys(sanitizedData).length === 0) {
-    console.log(`🔒 [SECURE] ${message}: [Data redacted]`);
-    return;
-  }
-  
-  console.log(`🔒 [SECURE] ${message}:`, JSON.stringify(sanitizedData));
-};
-
-export const secureCacheLog = (message, cachedData) => {
-  const sanitizedData = sanitizeData(cachedData);
+export const secureLog = (message, data = null) => {
   const timestamp = new Date().toISOString();
   
-  if (!sanitizedData || Object.keys(sanitizedData).length === 0) {
-    console.log(`🔒 [SECURE-CACHE ${timestamp}] ${message}: [Data redacted]`);
+  if (!data) {
+    console.log(`🔒 [${timestamp}] ${message}`);
     return;
   }
   
-  console.log(`🔒 [SECURE-CACHE ${timestamp}] ${message}:`, JSON.stringify(sanitizedData));
+  const sanitizedData = sanitizeData(data);
+  console.log(`🔒 [${timestamp}] ${message}:`, JSON.stringify(sanitizedData, null, 2));
 };

@@ -3,6 +3,7 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons"
 import { useRouter } from "expo-router"
 import { useState, useRef, useEffect } from "react"
 import NotificationModal from './NotificationModal'
+import AmbulanceModal from './AmbulanceModal' // Add this import
 import { searchDoctorsAndHospitals } from '../utils/searchUtils';
 import SearchResults from './SearchResults';
 
@@ -10,6 +11,7 @@ export default function Header({ scrollOffset }) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [showNotificationModal, setShowNotificationModal] = useState(false)
+  const [showAmbulanceModal, setShowAmbulanceModal] = useState(false)
   const bellAnim = useRef(new Animated.Value(0)).current
   const [searchResults, setSearchResults] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -125,7 +127,7 @@ export default function Header({ scrollOffset }) {
     >
       <View style={styles.contentContainer}>
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={() => router.push("/menu")}>
+          <TouchableOpacity onPress={() => setShowAmbulanceModal(true)}>
             <Icon name="ambulance" size={24} color="#3B39E4" />
           </TouchableOpacity>
           <View style={styles.rightIcons}>
@@ -209,6 +211,11 @@ export default function Header({ scrollOffset }) {
         visible={showNotificationModal}
         onClose={() => setShowNotificationModal(false)}
         notifications={notifications}
+      />
+
+      <AmbulanceModal
+        visible={showAmbulanceModal}
+        onClose={() => setShowAmbulanceModal(false)}
       />
     </Animated.View>
   )
