@@ -1,4 +1,4 @@
-import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Platform, Keyboard } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { BlurView } from "expo-blur";
 import Animated, { 
@@ -9,7 +9,7 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -49,6 +49,27 @@ const TabButton = ({ route, icon, isActive, onPress }) => {
 const CustomTabBar = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
+
+  if (isKeyboardVisible) {
+    return null;
+  }
 
   const isRouteActive = (route) => pathname.startsWith(`/${route}`);
 

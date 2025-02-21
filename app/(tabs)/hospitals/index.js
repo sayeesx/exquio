@@ -12,115 +12,205 @@ import {
   TextInput,
   Alert,
   Animated,
-  Platform,
   StatusBar,
-  ActivityIndicator,
+  Keyboard,
+  Platform,
+  RefreshControl,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { SvgUri } from 'react-native-svg';
-import { MotiView } from "moti";
-import { Easing } from "react-native-reanimated";
-import { supabase } from '../../../lib/supabase';
-import { HospitalCardSkeleton } from '../../../components/HospitalCardSkeleton';
-import { secureLog } from '../../../utils/secureLogging';
+import { LinearGradient } from "expo-linear-gradient";
+import { supabase } from "../../../lib/supabase";
+import { HospitalCardSkeleton } from "../../../components/HospitalCardSkeleton";
+import { secureLog } from "../../../utils/secureLogging";
+import { useFonts, Inter_700Bold } from '@expo-google-fonts/inter';
 
 const { width } = Dimensions.get("window");
 
 const AnimatedCard = Animated.createAnimatedComponent(TouchableOpacity);
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+const AnimatedText = Animated.createAnimatedComponent(Text);
 
-const HospitalCard = React.memo(({ hospital, onPress, index }) => {
-  const [imageError, setImageError] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+const FilterButton = ({ filter, isActive, onPress }) => (
+  <TouchableOpacity
+    onPress={() => onPress(filter)}
+    style={styles.filterButtonContainer}
+  >
+    <LinearGradient
+      colors={isActive ? ["#4F46E5", "#3B82F6"] : ["#fff", "#fff"]}
+      style={[styles.filterButton]}
+    >
+      <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
+        {filter.charAt(0).toUpperCase() + filter.slice(1)}
+      </Text>
+    </LinearGradient>
+  </TouchableOpacity>
+);
+
+const SearchBar = ({ value, onChangeText, onClear }) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const typingInterval = useRef(null);
+  const [placeholderText, setPlaceholderText] = useState('');
+  const fullText = "Search hospitals...";
+  
+  const startTypingAnimation = () => {
+    let index = 0;
+    if (typingInterval.current) clearInterval(typingInterval.current);
+    
+    setPlaceholderText('');
+    typingInterval.current = setInterval(() => {
+      if (index <= fullText.length) {
+        setPlaceholderText(fullText.slice(0, index));
+        index++;
+      } else {
+        clearInterval(typingInterval.current);
+        // Shorter delay before restarting for smoother loop
+        setTimeout(() => {
+          index = 0;
+          startTypingAnimation();
+        }, 800);
+      }
+    }, 100); // Faster typing speed
+  };
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.delay(index * 100), // Stagger effect
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 20,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]),
+    if (!isFocused) {
+      startTypingAnimation();
+    } else {
+      if (typingInterval.current) {
+        clearInterval(typingInterval.current);
+        setPlaceholderText(fullText);
+      }
+    };
+    
+    return () => {
+      if (typingInterval.current) {
+        clearInterval(typingInterval.current);
+      }
+    };
+  }, [isFocused]);
+
+  // Start animation when component mounts
+  useEffect(() => {
+    startTypingAnimation();
+    return () => {
+      if (typingInterval.current) {
+        clearInterval(typingInterval.current);
+      }
+    };
+  }, []);
+
+  return (
+    <View style={styles.searchContainer}>
+      <View style={styles.searchIconContainer}>
+        <MaterialCommunityIcons name="magnify" size={22} color="#64748B" />
+      </View>
+      <TextInput
+        style={styles.searchInput}
+        placeholder={isFocused ? fullText : placeholderText}
+        placeholderTextColor="#A0AEC0"
+        value={value}
+        onChangeText={onChangeText}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+      />
+      {value.length > 0 && (
+        <TouchableOpacity onPress={onClear} style={styles.clearButton}>
+          <MaterialCommunityIcons name="close-circle" size={20} color="#64748B" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
+
+const ScrollToTopButton = ({ onPress, visible }) => (
+  visible && (
+    <TouchableOpacity 
+      style={styles.scrollTopButton}
+      onPress={onPress}
+    >
+      <MaterialCommunityIcons name="arrow-up" size={24} color="#fff" />
+    </TouchableOpacity>
+  )
+);
+
+const HospitalCard = React.memo(({ hospital, onPress, index }) => {
+  const translateY = useRef(new Animated.Value(50)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const delay = index * 100;
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 500,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 500,
+        delay,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
-  useEffect(() => {
-    secureLog('Hospital data in card', hospital);
-  }, [hospital]);
-
   return (
-    <AnimatedCard 
-      style={[
-        styles.card,
-        {
-          opacity: opacityAnim,
-          transform: [{ scale: scaleAnim }],
-          width: width - 32, // Add explicit width
-        }
-      ]} 
-      onPress={() => onPress(hospital)}
-      activeOpacity={0.9}
-    >
-      <MotiView
-        from={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'timing', duration: 350 }}
-        style={styles.cardInner}
-      >
-        <Image 
-          source={{ uri: hospital.image_url || hospital.image }}
-          style={[styles.image, !imageLoaded && styles.hiddenImage]} 
-          onLoad={() => setImageLoaded(true)}
-          onError={(e) => {
-            console.log('Image loading error:', e); // Debug log
-            setImageError(true);
-          }}
-          loading="eager"
-        />
-        <BlurView intensity={80} tint="light" style={styles.cardOverlay}>
-          <View style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <View style={styles.hospitalInfo}>
-                {hospital.logo_url && (
-                  <Image 
-                    source={{ uri: hospital.logo_url || hospital.logo }}
-                    style={styles.logo}
-                    resizeMode="contain"
-                    fadeDuration={0}
-                  />
-                )}
-                <View style={styles.nameContainer}>
-                  <Text style={styles.hospitalName}>{hospital.name}</Text>
-                  <View style={styles.locationContainer}>
-                    <MaterialCommunityIcons name="map-marker" size={16} color="#FF4757" />
-                    <Text style={styles.locationText}>{hospital.location}</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity 
-                  style={styles.bookNowButton}
-                  onPress={() => onPress(hospital)}
-                >
-                  <Text style={styles.bookNowText}>Book Now</Text>
-                </TouchableOpacity>
-              </View>
+    <Animated.View style={[styles.hospitalCard, { opacity, transform: [{ translateY }] }]}>
+      <Image source={{ uri: hospital.image_url }} style={styles.cardImage} />
+      <View style={styles.cardOverlay}>
+        <LinearGradient
+          colors={["#fff", "#fff"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.typeLabel}
+        >
+          <Text style={[styles.typeLabelText, { color: '#3B39E4' }]}>
+            {hospital.type.charAt(0).toUpperCase() + hospital.type.slice(1)}
+          </Text>
+        </LinearGradient>
+
+        <BlurView intensity={35} tint="dark" style={styles.hospitalInfo}>
+          {hospital.logo_url && (
+            <Image
+              source={{ uri: hospital.logo_url }}
+              style={styles.hospitalLogo}
+            />
+          )}
+          <View style={styles.textContent}>
+            <Text style={styles.hospitalName} numberOfLines={1}>
+              {hospital.name}
+            </Text>
+            <View style={styles.locationRow}>
+              <MaterialCommunityIcons
+                name="map-marker"
+                size={16}
+                color="#fff"
+              />
+              <Text style={styles.locationText} numberOfLines={1}>
+                {hospital.location}
+              </Text>
             </View>
           </View>
+          <TouchableOpacity
+            onPress={() => onPress(hospital)}
+            style={styles.bookNowButton}
+          >
+            <LinearGradient
+              colors={["#4F46E5", "#3B82F6"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.bookNowGradient}
+            >
+              <Text style={styles.bookNowText}>Book Now</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </BlurView>
-      </MotiView>
-    </AnimatedCard>
+      </View>
+    </Animated.View>
   );
 });
 
@@ -128,37 +218,43 @@ export default function Hospitals() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
-  const [isReady, setIsReady] = useState(true);
   const [hospitals, setHospitals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [dbStatus, setDbStatus] = useState({ connected: false, checking: true });
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const flatListRef = useRef(null);
+  const [fontsLoaded] = useFonts({
+    Inter_700Bold,
+  });
 
   const loadHospitals = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('hospitals')
-        .select('*')
-        .order('name');
-      
+        .from("hospitals")
+        .select("*")
+        .order("name");
+
       if (error) {
         throw error;
       }
-      
-      secureLog('Fetched hospitals', data); // Replace console.log with secureLog
-      
-      const processedData = data?.map(hospital => ({
-        ...hospital,
-        image_url: hospital.image_url || hospital.image,
-        logo_url: hospital.logo_url || hospital.logo
-      })) || [];
+
+      secureLog("Fetched hospitals", data);
+
+      const processedData =
+        data?.map((hospital) => ({
+          ...hospital,
+          image_url: hospital.image_url || hospital.image,
+          logo_url: hospital.logo_url || hospital.logo,
+        })) || [];
 
       setHospitals(processedData);
     } catch (err) {
-      console.error('Error loading hospitals:', err.message); // Only log error message
+      console.error("Error loading hospitals:", err.message);
       setError(err.message);
-      Alert.alert('Error', 'Failed to load hospitals');
+      Alert.alert("Error", "Failed to load hospitals");
     } finally {
       setLoading(false);
     }
@@ -167,33 +263,26 @@ export default function Hospitals() {
   useEffect(() => {
     loadHospitals();
 
-    // Subscribe to real-time updates
     const channel = supabase
-      .channel('hospitals_channel')
+      .channel("hospitals_channel")
       .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'hospitals'
-        },
-        async (payload) => {
-          console.log('Real-time update:', payload);
-          
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hospitals" },
+        (payload) => {
           switch (payload.eventType) {
-            case 'INSERT':
-              setHospitals(prev => [...prev, payload.new]);
+            case "INSERT":
+              setHospitals((prev) => [...prev, payload.new]);
               break;
-            case 'UPDATE':
-              setHospitals(prev =>
-                prev.map(hospital =>
+            case "UPDATE":
+              setHospitals((prev) =>
+                prev.map((hospital) =>
                   hospital.id === payload.new.id ? payload.new : hospital
                 )
               );
               break;
-            case 'DELETE':
-              setHospitals(prev =>
-                prev.filter(hospital => hospital.id !== payload.old.id)
+            case "DELETE":
+              setHospitals((prev) =>
+                prev.filter((hospital) => hospital.id !== payload.old.id)
               );
               break;
           }
@@ -201,55 +290,46 @@ export default function Hospitals() {
       )
       .subscribe();
 
-    // Cleanup subscription
     return () => {
       channel.unsubscribe();
     };
   }, []);
 
   useEffect(() => {
-    async function checkConnection() {
-      try {
-        const result = await testDatabaseConnection();
-        setDbStatus({ 
-          connected: result.success, 
-          checking: false 
-        });
-      } catch (error) {
-        setDbStatus({ 
-          connected: false, 
-          checking: false,
-          error: error.message 
-        });
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
       }
-    }
+    );
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
 
-    checkConnection();
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
   }, []);
 
   const handleFilterPress = (filter) => {
-    if (filter === "vet") {
-      Alert.alert("Coming Soon", "This feature will be available soon");
-      return;
-    }
     setSelectedFilter(filter);
   };
 
   const handleHospitalPress = (hospital) => {
     try {
       if (!hospital || !hospital.id) {
-        throw new Error('Invalid hospital data');
+        throw new Error("Invalid hospital data");
       }
-      
-      // Update the navigation path to include (tabs)
       router.push(`/(tabs)/hospitals/${hospital.id}`);
     } catch (error) {
-      console.error('Navigation error:', error);
-      Alert.alert(
-        'Error',
-        'Unable to view hospital details. Please try again.',
-        [{ text: 'OK' }]
-      );
+      console.error("Navigation error:", error);
+      Alert.alert("Error", "Unable to view hospital details. Please try again.", [
+        { text: "OK" },
+      ]);
     }
   };
 
@@ -261,9 +341,23 @@ export default function Hospitals() {
     );
   }, [selectedFilter, searchQuery, hospitals]);
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadHospitals().finally(() => setRefreshing(false));
+  }, []);
+
+  const handleScroll = (event) => {
+    const scrollPosition = event.nativeEvent.contentOffset.y;
+    setShowScrollTop(scrollPosition > 300);
+  };
+
+  const scrollToTop = () => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
   if (loading) {
     return (
-      <View style={[styles.container, styles.listContainer]}>
+      <View style={styles.container}>
         {[1, 2, 3].map((index) => (
           <HospitalCardSkeleton key={index} />
         ))}
@@ -273,83 +367,88 @@ export default function Hospitals() {
 
   if (error) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
+      <View style={styles.container}>
         <Text style={styles.errorText}>Failed to load hospitals</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
-          onPress={() => loadHospitals()}
-        >
+        <TouchableOpacity style={styles.retryButton} onPress={loadHospitals}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Find Hospitals</Text>
-        <Text style={styles.headerSubtitle}>Discover healthcare near you</Text>
-      </View>
+  if (!fontsLoaded) {
+    return null;
+  }
 
-      <View style={styles.searchContainer}>
-        <MaterialCommunityIcons name="magnify" size={24} color="#666" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search hospitals..."
-          placeholderTextColor="#999"
-          value={searchQuery}
+  return (
+    <View style={[styles.container, isKeyboardVisible && styles.keyboardOpen]}>
+      <LinearGradient
+        colors={["#fff", "#f8fafc"]}
+        style={styles.header}
+      >
+        <Text style={[styles.headerTitle, { fontFamily: 'Inter_700Bold' }]}>
+          Find Hospitals
+        </Text>
+        <Text style={[styles.headerSubtitle, { fontFamily: 'Inter_700Bold' }]}>
+          Discover healthcare near you
+        </Text>
+        <SearchBar 
+          value={searchQuery} 
           onChangeText={setSearchQuery}
+          onClear={() => setSearchQuery('')}
         />
-      </View>
+      </LinearGradient>
 
       <View style={styles.filterContainer}>
-        {["all", "multi", "ayurveda", "clinic", "vet"].map((filter) => (
-          <TouchableOpacity
+        {["all", "multi", "clinic", "ayurveda"].map((filter) => (
+          <FilterButton
             key={filter}
-            style={[
-              styles.filterButton,
-              selectedFilter === filter && styles.filterButtonActive,
-            ]}
-            onPress={() => handleFilterPress(filter)}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === filter && styles.filterTextActive,
-              ]}
-            >
-              {filter.charAt(0).toUpperCase() + filter.slice(1)}
-            </Text>
-          </TouchableOpacity>
+            filter={filter}
+            isActive={selectedFilter === filter}
+            onPress={handleFilterPress}
+          />
         ))}
       </View>
 
-      {filteredHospitals.length > 0 ? (
+      {loading ? (
+        <View style={styles.listContainer}>
+          {[1, 2, 3].map((index) => (
+            <HospitalCardSkeleton key={index} />
+          ))}
+        </View>
+      ) : filteredHospitals.length === 0 ? (
+        <View style={styles.noResultsContainer}>
+          <MaterialCommunityIcons
+            name="hospital-building"
+            size={64}
+            color="#ccc"
+          />
+          <Text style={styles.noResultsText}>No hospitals found</Text>
+          <Text style={styles.suggestionText}>Try adjusting your filters</Text>
+        </View>
+      ) : (
         <FlatList
+          ref={flatListRef}
           data={filteredHospitals}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           renderItem={({ item, index }) => (
-            <HospitalCard 
-              hospital={item} 
-              onPress={() => item ? handleHospitalPress(item) : null}
+            <HospitalCard
+              hospital={item}
+              onPress={handleHospitalPress}
               index={index}
             />
           )}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={3}
-          maxToRenderPerBatch={3}
-          windowSize={3}
-          removeClippedSubviews={true}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         />
-      ) : (
-        <View style={styles.noResultsContainer}>
-          <MaterialCommunityIcons name="hospital-building" size={64} color="#ddd" />
-          <Text style={styles.noResultsText}>No hospitals found</Text>
-          <Text style={styles.suggestionText}>Try adjusting your search</Text>
-        </View>
       )}
+
+      <ScrollToTopButton visible={showScrollTop} onPress={scrollToTop} />
     </View>
   );
 }
@@ -358,177 +457,209 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F9FA",
-    paddingTop: Platform.OS === 'ios' ? StatusBar.currentHeight : 0,
   },
   header: {
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: "#F8F9FA",
+    padding: 16,
+    paddingTop: 40,
+    paddingLeft: 28, // Increased left padding
+    paddingBottom: 16,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
+    marginBottom: 24,
   },
   headerTitle: {
-    fontSize: 32,
-    fontWeight: "800",
+    fontSize: 28,
     color: "#1E293B",
     letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#64748B",
-    marginTop: 4,
+    marginTop: 2,
     letterSpacing: 0.2,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    margin: 16,
-    marginBottom: 10,
-    padding: 12,
-    height: 56,
-    borderRadius: 16,
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    margin: 12,
+    marginTop: 16,
+    padding: 0,
+    height: 46,
+    borderRadius: 23,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  searchIconContainer: {
+    paddingLeft: 16,
+    paddingRight: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
+    fontSize: 15,
     color: "#1E293B",
+    paddingVertical: 8,
+    fontFamily: 'Inter_700Bold',
+  },
+  filterScrollView: {
+    marginVertical: 12,
   },
   filterContainer: {
-    flexDirection: "row",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     marginBottom: 16,
   },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#fff",
-    marginRight: 8,
-    shadowColor: "#1E293B",
+  filterButtonContainer: {
+    height: 44,
+    width: width / 4.3, // Slightly increased width
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 2,
   },
-  filterButtonActive: {
-    backgroundColor: "#3B39E4",
-    shadowColor: "#3B39E4",
-    shadowOpacity: 0.25,
+  filterButton: {
+    flex: 1,
+    paddingHorizontal: 12, // Decreased padding
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterText: {
-    color: "black",
-    textAlign: "center",
-    marginTop: 5,
-    fontSize: 14,
-    fontWeight: "600",
+    color: "#64748B",
+    fontSize: 13, // Slightly smaller font
+    fontFamily: 'Inter_700Bold',
+    textAlign: 'center',
   },
   filterTextActive: {
     color: "#fff",
   },
   listContainer: {
-    paddingTop: 20,
     paddingHorizontal: 16,
-    paddingBottom: 20
+    paddingTop: 8,
   },
-  card: {
-    height: 180,
+  hospitalCard: {
+    height: 200,
     marginBottom: 16,
-    borderRadius: 24,
+    borderRadius: 20,
     overflow: "hidden",
     backgroundColor: "#fff",
-    shadowColor: "#1E293B",
+    elevation: 8,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowRadius: 16,
   },
-  cardInner: {
-    flex: 1,
+  hospitalLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginLeft: -15,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.2)",
   },
-  image: {
+  cardImage: {
     width: "100%",
     height: "100%",
-    opacity: 1,
+    resizeMode: "cover",
   },
   cardOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: "45%",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
-  },
-  cardContent: {
+    height: "100%",
     padding: 16,
+    justifyContent: "flex-end",
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    width: '100%',
+  typeLabel: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    overflow: "hidden",
+    opacity: 0.95,
+  },
+  typeLabelText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(255,255,255,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   hospitalInfo: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
-    marginRight: 12,
-    zIndex: 3,
+    padding: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: 'rgba(0,0,0,0.25)', // Lighter background
   },
-  logoContainer: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
+  textContent: {
+    flex: 1,
+    marginRight: 16,
     justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  logo: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-    backgroundColor: 'transparent',
-  },
-  nameContainer: {
-    flex: 1,
   },
   hospitalName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1E293B",
-    marginBottom: 4,
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+    marginBottom: 6,
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    lineHeight: 20,
   },
-  locationContainer: {
+  locationRow: {
     flexDirection: "row",
     alignItems: "center",
   },
   locationText: {
+    color: '#fff',
+    fontSize: 13,
+    opacity: 0.95,
     marginLeft: 4,
-    color: "#64748B",
-    fontSize: 14,
+    letterSpacing: 0.2,
+    fontFamily: 'Inter_700Bold',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    lineHeight: 18,
   },
-  typeBadge: {
-    
-    shadowColor: "#000",
-    shadowOffset: { width: 5, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 7,
+  bookNowButton: {
+    overflow: "hidden",
+    borderRadius: 12,
+    alignSelf: 'center',
   },
-  typeText: {
-    color: "black",
-    fontSize: 10,
-    fontWeight: "600",
+  bookNowGradient: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  bookNowText: {
+    color: '#fff',
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: 0.5,
   },
   noResultsContainer: {
     flex: 1,
@@ -547,58 +678,44 @@ const styles = StyleSheet.create({
     color: "#64748B",
     marginTop: 8,
   },
-  hiddenImage: {
-    opacity: 0,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   errorText: {
     fontSize: 18,
-    color: '#FF4757',
-    marginBottom: 16,
+    color: "#1E293B",
+    textAlign: "center",
+    marginTop: 20,
   },
   retryButton: {
-    padding: 12,
-    backgroundColor: '#3B39E4',
-    borderRadius: 8,
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: "#4F46E5",
+    borderRadius: 10,
   },
   retryText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
-  hospitalCard: {
-    height: 180,
-    width: width * 0.9,
+  keyboardOpen: {
+    paddingBottom: 0, // Remove bottom padding when keyboard is open
   },
-  buttonContainer: {
+  clearButton: {
+    padding: 8,
+  },
+  scrollTopButton: {
     position: 'absolute',
-    right: 0,
-    zIndex: 5,
-  },
-  bookNowButton: {
+    right: 20,
+    bottom: 20,
     backgroundColor: '#3B39E4',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 80,
-    elevation: 4,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  bookNowText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
 });
