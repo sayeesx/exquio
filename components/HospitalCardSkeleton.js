@@ -1,20 +1,43 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Shimmer } from './Shimmer';
+import { View, StyleSheet, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export const HospitalCardSkeleton = () => {
+  const animatedValue = new Animated.Value(0);
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const opacity = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
   return (
     <View style={styles.card}>
-      <Shimmer width="100%" height={120} style={styles.image} />
+      <Animated.View style={[styles.image, { opacity }]} />
       <View style={styles.content}>
         <View style={styles.row}>
-          <Shimmer width={40} height={40} style={styles.logo} />
+          <Animated.View style={[styles.avatar, { opacity }]} />
           <View style={styles.textContainer}>
-            <Shimmer width={150} height={20} style={styles.nameShimmer} />
-            <Shimmer width={100} height={16} style={styles.locationShimmer} />
+            <Animated.View style={[styles.title, { opacity }]} />
+            <Animated.View style={[styles.subtitle, { opacity }]} />
           </View>
         </View>
-        <Shimmer width={80} height={32} style={styles.typeShimmer} />
       </View>
     </View>
   );
@@ -22,46 +45,49 @@ export const HospitalCardSkeleton = () => {
 
 const styles = StyleSheet.create({
   card: {
-    width: 385,
-    borderRadius: 10,
-    margin : -4,
-    marginBottom: 10,
-    overflow: "hidden",
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+    elevation: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 5,
   },
   image: {
-    width: "100%",
-    height: 150,
+    width: '100%',
+    height: 160,
+    backgroundColor: '#E2E8F0',
   },
   content: {
     padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  logo: {
-    borderRadius: 10,
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E2E8F0',
     marginRight: 12,
   },
   textContainer: {
-    gap: 8,
+    flex: 1,
   },
-  nameShimmer: {
+  title: {
+    height: 20,
+    backgroundColor: '#E2E8F0',
     borderRadius: 4,
+    marginBottom: 8,
+    width: '80%',
   },
-  locationShimmer: {
+  subtitle: {
+    height: 16,
+    backgroundColor: '#E2E8F0',
     borderRadius: 4,
+    width: '60%',
   },
-  typeShimmer: {
-    borderRadius: 7,
-  }
 });

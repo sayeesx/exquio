@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const AnimatedPolyline = Animated.createAnimatedComponent(Polyline);
 
@@ -52,6 +53,37 @@ const LoadingSpinner = () => {
   );
 };
 
+const LoadingAnimation = ({ size = 40, color = "#3B39E4" }) => {
+  const spinValue = new Animated.Value(0);
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.timing(spinValue, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
+
+  return (
+    <View style={styles.container}>
+      <Animated.View style={{ transform: [{ rotate: spin }] }}>
+        <MaterialCommunityIcons 
+          name="loading" 
+          size={size} 
+          color={color} 
+        />
+      </Animated.View>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   container: {
     width: 64,
@@ -62,3 +94,4 @@ const styles = StyleSheet.create({
 });
 
 export default LoadingSpinner;
+export { LoadingAnimation };
