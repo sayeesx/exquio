@@ -3,46 +3,40 @@ import { useRouter, usePathname } from "expo-router";
 import { BlurView } from "expo-blur";
 import Animated, { 
   useAnimatedStyle, 
-  withSpring,
+  withTiming,
   useSharedValue,
-  Layout,
-  FadeIn,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useEffect } from 'react';
 
-const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
-
 const TabButton = ({ route, icon, isActive, onPress }) => {
-  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
 
   const handlePress = () => {
-    scale.value = withSpring(0.9, {}, () => {
-      scale.value = withSpring(1);
+    opacity.value = withTiming(0.6, { duration: 100 }, () => {
+      opacity.value = withTiming(1, { duration: 200 });
     });
     onPress();
   };
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
   }));
 
   return (
-    <AnimatedTouchableOpacity
-      style={[
-        styles.tabButton,
-        isActive && styles.activeButton,
-        animatedStyle
-      ]}
-      onPress={handlePress}
-      layout={Layout.springify()}
-    >
-      <Ionicons
-        name={icon}
-        size={22}
-        color={isActive ? "#fff" : "rgba(0, 0, 0, 0.5)"}
-      />
-    </AnimatedTouchableOpacity>
+    <Animated.View style={[styles.tabButton, animatedStyle]}>
+      <TouchableOpacity
+        onPress={handlePress}
+        style={styles.touchable}
+      >
+        <Ionicons
+          name={icon}
+          size={24}
+          color={isActive ? "#3b39e4" : "rgba(0, 0, 0, 0.5)"}
+          style={styles.icon}
+        />
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
@@ -76,7 +70,7 @@ const CustomTabBar = () => {
   const tabs = [
     { route: "/hospitals", icon: "medical-outline" },
     { route: "appointment", icon: "calendar-clear-outline" },
-    { route: "home", icon: "home-outline" },
+    { route: "/home", icon: "home-outline" },
     { route: "lab-records", icon: "flask-outline" },
     { route: "profile", icon: "person-outline" }
   ];
@@ -103,65 +97,38 @@ const CustomTabBar = () => {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    height: 50,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    backgroundColor: 'transparent',
+    height: 58,
+  
   },
   blurContainer: {
     flex: 1,
-    height: 60,
-    borderRadius: 32,
-    borderColor: "rgba(2, 0, 3, 0.2)",
+    height: '100%',
     backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
   content: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
   },
   tabButton: {
     padding: 8,
-    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    width: 44,
-    height: 44,
-    transform: [{ translateY: 0 }],
-    backfaceVisibility: 'hidden', // Reduces visual glitches
+    minWidth: 60,
   },
-  centerButton: {
-    marginBottom: 0,
-    width: 48,
-    height: 48,
-  },
-  activeButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#3b39e4",
+  touchable: {
+    padding: 8,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#3b39e4",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    transform: [{ translateY: -2 }], // Slight lift effect when active
   },
+  icon: {
+    opacity: 0.95,
+  }
 });
 
 export default CustomTabBar;

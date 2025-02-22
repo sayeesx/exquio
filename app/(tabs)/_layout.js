@@ -7,23 +7,26 @@ export default function Layout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarStyle: {
+          display: 'none'
+        }
       }}
       tabBar={(props) => <CustomTabBar {...props} />}
     >
       <Tabs.Screen 
         name="home"
         options={{
-          href: null
+          href: '/'
         }}
       />
       <Tabs.Screen 
-        name="appointment"
+        name="hospitals"
         options={{
           href: null
         }}
       />
       <Tabs.Screen 
-        name="hospitals"
+        name="appointment"
         options={{
           href: null
         }}
