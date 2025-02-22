@@ -17,6 +17,7 @@ import {
   Platform,
   RefreshControl,
   Easing,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -128,55 +129,27 @@ const FilterToggle = React.memo(({ selectedFilter, prevFilter }) => {
 }, (prevProps, nextProps) => prevProps.selectedFilter === nextProps.selectedFilter && prevProps.prevFilter === nextProps.prevFilter);
 
 const SearchBar = ({ value, onChangeText, onClear }) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const typingInterval = useRef(null);
-  const [placeholderText, setPlaceholderText] = useState('');
-  const fullText = "Search hospitals...";
-  
-  const startTypingAnimation = () => {
-    let index = 0;
-    if (typingInterval.current) clearInterval(typingInterval.current);
-    
-    setPlaceholderText('');
-    typingInterval.current = setInterval(() => {
-      if (index <= fullText.length) {
-        setPlaceholderText(fullText.slice(0, index));
-        index++;
-      } else {
-        clearInterval(typingInterval.current);
-        setTimeout(() => {
-          index = 0;
-          startTypingAnimation();
-        }, 800);
-      }
-    }, 100);
+  const inputRef = useRef(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeout = useRef(null);
+
+  const handleSearch = (query) => {
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    onChangeText(query);
+
+    if (!query) {
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    searchTimeout.current = setTimeout(() => {
+      setIsSearching(false);
+    }, 150);
   };
-
-  useEffect(() => {
-    if (!isFocused) {
-      startTypingAnimation();
-    } else {
-      if (typingInterval.current) {
-        clearInterval(typingInterval.current);
-        setPlaceholderText(fullText);
-      }
-    };
-    
-    return () => {
-      if (typingInterval.current) {
-        clearInterval(typingInterval.current);
-      }
-    };
-  }, [isFocused]);
-
-  useEffect(() => {
-    startTypingAnimation();
-    return () => {
-      if (typingInterval.current) {
-        clearInterval(typingInterval.current);
-      }
-    };
-  }, []);
 
   return (
     <View style={styles.searchContainer}>
@@ -184,18 +157,24 @@ const SearchBar = ({ value, onChangeText, onClear }) => {
         <MaterialCommunityIcons name="magnify" size={22} color="#64748B" />
       </View>
       <TextInput
+        ref={inputRef}
         style={styles.searchInput}
-        placeholder={isFocused ? fullText : placeholderText}
+        placeholder="Search hospitals..."
         placeholderTextColor="#A0AEC0"
         value={value}
-        onChangeText={onChangeText}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
+        onChangeText={handleSearch}
+        returnKeyType="search"
+        autoCorrect={false}
       />
       {value.length > 0 && (
         <TouchableOpacity onPress={onClear} style={styles.clearButton}>
           <MaterialCommunityIcons name="close-circle" size={20} color="#64748B" />
         </TouchableOpacity>
+      )}
+      {isSearching && (
+        <View style={styles.searchingIndicator}>
+          <ActivityIndicator size="small" color="#3B39E4" />
+        </View>
       )}
     </View>
   );
@@ -421,7 +400,6 @@ export default function Hospitals() {
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [error, setError] = useState(null);
   const [isNetworkDown, setIsNetworkDown] = useState(false); // New state for network status
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const flatListRef = useRef(null);
@@ -509,26 +487,6 @@ export default function Hospitals() {
 
     return () => {
       channel.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    const keyboardWillShow = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => {
-        setKeyboardVisible(true);
-      }
-    );
-    const keyboardWillHide = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-      }
-    );
-
-    return () => {
-      keyboardWillShow.remove();
-      keyboardWillHide.remove();
     };
   }, []);
 
@@ -622,22 +580,11 @@ export default function Hospitals() {
   }
 
   return (
-    <View style={[styles.container, isKeyboardVisible && styles.keyboardOpen]}>
+    <View style={styles.container}>
       <Animated.FlatList
         ref={flatListRef}
         data={filteredHospitals}
         ListHeaderComponent={renderListHeader}
-        ListEmptyComponent={
-          <View style={styles.noResultsContainer}>
-            <MaterialCommunityIcons
-              name="hospital-building"
-              size={64}
-              color="#ccc"
-            />
-            <Text style={styles.noResultsText}>No hospitals found</Text>
-            <Text style={styles.suggestionText}>Try adjusting your filters</Text>
-          </View>
-        }
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item, index }) => (
           <HospitalCard
@@ -647,12 +594,14 @@ export default function Hospitals() {
           />
         )}
         contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
       />
       <ScrollToTopButton visible={showScrollTop} onPress={scrollToTop} />
     </View>
@@ -691,20 +640,15 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#F5F5F5",
     marginRight: 12,
     marginTop: 16,
-    padding: 0,
-    height: 46,
+    height: 48,
     width: "100%",
-    borderRadius: 23,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 24,
+    paddingLeft: 16,
+    position: 'relative',
+    zIndex: 1,
   },
   searchIconContainer: {
     paddingLeft: 16,
@@ -714,8 +658,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: "#1E293B",
-    paddingVertical: 8,
+    height: 48,
+    paddingVertical: 0,
     fontFamily: 'Inter_700Bold',
+  },
+  searchingIndicator: {
+    position: 'absolute',
+    right: 16,
+    top: 14,
+  },
+  clearButton: {
+    padding: 8,
+    marginRight: 8,
   },
   filterWrapper: {
     marginTop: 16,
@@ -961,10 +915,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
   keyboardOpen: {
-    paddingBottom: 0,
-  },
-  clearButton: {
-    padding: 8,
+    paddingBottom: Platform.OS === 'ios' ? 90 : 0,
   },
   scrollTopButton: {
     position: 'absolute',
@@ -996,5 +947,8 @@ const styles = StyleSheet.create({
   },
   allContent: {
     marginLeft: 20,
+  },
+  listContainerWithKeyboard: {
+    paddingBottom: Platform.OS === 'ios' ? 120 : 80,
   },
 });
