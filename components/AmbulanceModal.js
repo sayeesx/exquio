@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { secureLog } from '../utils/secureLogging';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { LinearGradient } from 'expo-linear-gradient'; // Add this import
 
 // Move fallbackImage outside components so it's accessible to all
 const fallbackImage = require('../assets/ambulance.png');
@@ -144,7 +145,7 @@ const AmbulanceItem = ({ item, onCall, callLoading }) => (
   </Pressable>
 );
 
-export default function AmbulanceModal({ visible, onClose }) {
+export default function AmbulanceModal({ visible, onClose, emergencyContact }) {
   const [ambulances, setAmbulances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -519,5 +520,45 @@ const styles = StyleSheet.create({
   },
   unavailableText: {
     color: '#FF4757',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 32,
+  },
+  emergencyHeader: {
+    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  emergencyTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginLeft: 12,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  description: {
+    fontSize: 16,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  callButtonText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  closeButtonText: {
+    color: '#64748B',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
