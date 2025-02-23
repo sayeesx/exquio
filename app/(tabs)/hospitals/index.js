@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
@@ -20,7 +18,6 @@ import { supabase } from "../../../lib/supabase";
 import { useFonts, Inter_700Bold } from '@expo-google-fonts/inter';
 import SearchBar from '../../../components/SearchBar';
 import { HospitalCardSkeleton } from "../../../components/HospitalCardSkeleton";
-import LoadingAnimation from '../../../components/LoadingAnimation';
 import FilterButtons from '../../../components/FilterButtons';
 
 const HospitalCard = ({ hospital }) => {
@@ -98,12 +95,6 @@ const LoadingSkeletons = () => (
   </View>
 );
 
-const CustomRefreshControl = ({ refreshing, onRefresh }) => (
-  <View style={styles.refreshControl}>
-    <LoadingAnimation size={30} color="#3B39E4" />
-  </View>
-);
-
 export default function Hospitals() {
   const [hospitals, setHospitals] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,8 +102,8 @@ export default function Hospitals() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isNetworkError, setIsNetworkError] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState('all'); // Add this line
-  const [prevFilter, setPrevFilter] = useState('all'); // Add this line for animation
+  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [prevFilter, setPrevFilter] = useState('all');
 
   const loadHospitals = async () => {
     try {
@@ -184,7 +175,7 @@ export default function Hospitals() {
         </ScrollView>
       );
     }
-  
+
     if (isNetworkError) {
       return (
         <ScrollView style={styles.scrollView}>
@@ -208,7 +199,7 @@ export default function Hospitals() {
         </ScrollView>
       );
     }
-  
+
     return (
       <ScrollView
         style={styles.scrollView}
@@ -245,7 +236,10 @@ export default function Hospitals() {
             <LoadingSkeletons />
           ) : filteredHospitals.length > 0 ? (
             filteredHospitals.map((hospital) => (
-              <HospitalCard key={hospital.id} hospital={hospital} />
+              <HospitalCard 
+                key={hospital.id} 
+                hospital={hospital}
+              />
             ))
           ) : (
             <EmptyState message="No hospitals found" />
@@ -254,7 +248,7 @@ export default function Hospitals() {
       </ScrollView>
     );
   };
-  
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -279,21 +273,24 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 28,
+    marginLeft: 18,
     color: "#1E293B",
     fontFamily: 'Inter_700Bold',
     marginBottom: 4,
   },
   headerSubtitle: {
+    marginLeft: 18,
     fontSize: 14,
     color: "#64748B",
     fontFamily: 'Inter_700Bold',
-    marginBottom: 8,
+    marginBottom: 18,
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
     padding: 16,
+    paddingTop: 8,
   },
   card: {
     backgroundColor: '#fff',
@@ -310,15 +307,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 160,
     resizeMode: 'cover',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   cardContent: {
-    padding: 16,
-    paddingTop: 12,
+    padding: 12,
+    paddingTop: 8,
+    position: 'relative',
+    marginTop: -20,
+    paddingBottom: 16,
   },
   typeLabel: {
     position: 'absolute',
     right: 16,
-    top: -12,
+    top: 7,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -336,6 +338,8 @@ const styles = StyleSheet.create({
   hospitalInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingRight: 80,
+    marginTop: 12,
   },
   hospitalLogo: {
     width: 48,
@@ -353,11 +357,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#1E293B',
     fontFamily: 'Inter_700Bold',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 2,
   },
   locationText: {
     color: '#64748B',
@@ -394,33 +399,30 @@ const styles = StyleSheet.create({
   skeletonContainer: {
     padding: 16,
   },
-  refreshControl: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 10,
-  },
   bookNowButton: {
+    position: 'absolute',
+    right: 12,
+    top: 37,
     backgroundColor: '#3B39E4',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
     shadowColor: "#3B39E4",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
+    elevation: 2,
+    minWidth: 80,
   },
   bookingButton: {
     opacity: 0.8,
   },
   bookNowText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Inter_700Bold',
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
   },
 });

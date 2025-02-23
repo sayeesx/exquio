@@ -54,14 +54,15 @@ const SearchBar = ({ value, onChangeText, placeholder = "Search..." }) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 2,
     paddingVertical: 8,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: 16,
+    height: 50,
+    borderRadius: 26,
     paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 12 : 8,
     borderWidth: 1,
