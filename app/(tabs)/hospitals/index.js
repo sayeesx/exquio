@@ -342,13 +342,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   hospitalLogo: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 28,
+    height: 28,
     marginRight: 12,
     backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 4,
   },
   textContent: {
     flex: 1,

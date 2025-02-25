@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.2.3",
-    "@expo/vector-icons": "^14.0.2",
+    "@expo/vector-icons": "^13.0.0",
     "@motify/components": "^0.18.0",
     "@motify/core": "^0.18.0",
     "@react-native-async-storage/async-storage": "1.23.1",
@@ -49,7 +49,7 @@
     "expo-web-browser": "~14.0.2",
     "framer-motion": "^12.4.3",
     "lottie-react-native": "7.1.0",
-    "lucide-react-native": "^0.474.0",
+    "lucide-react-native": "^0.338.0",
     "moment": "^2.30.1",
     "moti": "^0.29.0",
     "phosphor-react-native": "^2.3.1",

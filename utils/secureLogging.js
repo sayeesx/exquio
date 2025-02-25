@@ -1,54 +1,19 @@
-// Update the sensitiveFields array to include more fields
-const sensitiveFields = [
-  'created_at',
-  'id',
-  'phone_number',
-  'logo_url',
-  'is_available',
-  'location'
-];
+const sensitiveFields = ['*']; // Consider all fields sensitive
 
-const safeFields = [
-  'name'
-];
-
-const maskValue = (value, field) => {
-  if (field === 'name') {
-    return value.substring(0, 3) + '***';
-  }
-  return '[REDACTED]';
-};
+const maskValue = (value) => '[HIDDEN]';
 
 const sanitizeData = (data) => {
-  if (!data) return data;
+  if (!data) return '[HIDDEN]';
   
   if (Array.isArray(data)) {
-    return data.map(item => {
-      const sanitized = {};
-      Object.keys(item).forEach(key => {
-        if (sensitiveFields.includes(key)) {
-          sanitized[key] = '[REDACTED]';
-        } else if (safeFields.includes(key)) {
-          sanitized[key] = maskValue(item[key], key);
-        }
-      });
-      return sanitized;
-    });
+    return '[ARRAY_HIDDEN]';
   }
   
   if (typeof data === 'object') {
-    const sanitized = {};
-    Object.keys(data).forEach(key => {
-      if (sensitiveFields.includes(key)) {
-        sanitized[key] = '[REDACTED]';
-      } else if (safeFields.includes(key)) {
-        sanitized[key] = maskValue(data[key], key);
-      }
-    });
-    return sanitized;
+    return '[OBJECT_HIDDEN]';
   }
   
-  return '[REDACTED]';
+  return '[HIDDEN]';
 };
 
 export const secureLog = (message, data = null) => {
@@ -59,6 +24,5 @@ export const secureLog = (message, data = null) => {
     return;
   }
   
-  const sanitizedData = sanitizeData(data);
-  console.log(`🔒 [${timestamp}] ${message}:`, JSON.stringify(sanitizedData, null, 2));
+  console.log(`🔒 [${timestamp}] ${message}: [DATA_HIDDEN]`);
 };
