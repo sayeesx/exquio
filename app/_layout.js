@@ -27,10 +27,10 @@ export default function RootLayout() {
     >
       <Stack.Screen
         name="(tabs)"
-        options={{
+        options={({ route }) => ({
           headerShown: false,
           animation: 'none',
-        }}
+        })}
       />
     </Stack>
   );

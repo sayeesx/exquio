@@ -65,11 +65,18 @@ const HospitalCard = ({ hospital }) => {
           style={[styles.bookNowButton, isLoading && styles.bookingButton]}
           disabled={isLoading}
         >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.bookNowText}>Book Now</Text>
-          )}
+          <LinearGradient
+            colors={["#4C35E3", "#4B47E5", "#5465FF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.bookNowGradient}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.bookNowText}>Book Now</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -156,7 +163,9 @@ export default function Hospitals() {
           showsVerticalScrollIndicator={false}
         >
           <LinearGradient 
-            colors={["#fff", "#f8fafc"]} 
+            colors={["#4C35E3", "#4B47E5", "#5465FF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.header}
           >
             <Text style={styles.headerTitle}>Find Hospitals</Text>
@@ -180,7 +189,9 @@ export default function Hospitals() {
       return (
         <ScrollView style={styles.scrollView}>
           <LinearGradient 
-            colors={["#fff", "#f8fafc"]} 
+            colors={["#4C35E3", "#4B47E5", "#5465FF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.header}
           >
             <Text style={styles.headerTitle}>Find Hospitals</Text>
@@ -216,7 +227,9 @@ export default function Hospitals() {
         }
       >
         <LinearGradient 
-          colors={["#fff", "#f8fafc"]} 
+          colors={["#4C35E3", "#4B47E5", "#5465FF"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.header}
         >
           <Text style={styles.headerTitle}>Find Hospitals</Text>
@@ -251,7 +264,7 @@ export default function Hospitals() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       {renderContent()}
     </View>
   );
@@ -264,26 +277,26 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 16,
-    paddingTop: Platform.OS === 'ios' ? StatusBar.currentHeight + 16 : 16,
+    paddingTop: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight + 30,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
+    paddingBottom: 24,
     marginBottom: 8,
   },
   headerTitle: {
     fontSize: 28,
     marginLeft: 18,
-    color: "#1E293B",
+    color: "#fff",
     fontFamily: 'Inter_700Bold',
-    marginBottom: 4,
+    marginBottom: 8,
+    marginTop: 12,
   },
   headerSubtitle: {
     marginLeft: 18,
     fontSize: 14,
-    color: "#64748B",
+    color: "rgba(255, 255, 255, 0.9)",
     fontFamily: 'Inter_700Bold',
-    marginBottom: 18,
+    marginBottom: 24,
   },
   scrollView: {
     flex: 1,
@@ -329,7 +342,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   typeLabelText: {
-    color: '#3B39E4',
+    color: '#4C35E3',
     fontSize: 11,
     fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
@@ -401,18 +414,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 12,
     top: 37,
-    backgroundColor: '#3B39E4',
     borderRadius: 8,
+    overflow: 'hidden',
+    minWidth: 80,
+  },
+  bookNowGradient: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: "#3B39E4",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-    minWidth: 80,
   },
   bookingButton: {
     opacity: 0.8,

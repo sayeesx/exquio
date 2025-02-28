@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Easing, Linking, RefreshControl } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Easing, Linking, RefreshControl, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MotiView } from 'moti';
+import { MotiView, MotiImage } from 'moti';
 import FloatingBookButton from '../../../components/FloatingBookButton';
 import AnimatedClock from '../../../components/AnimatedClock';
 import AmbulanceModal from '../../../components/AmbulanceModal';
 import { secureLog } from '../../../utils/secureLogging';
 import { checkSupabaseConnection } from '../../../lib/supabase';
 import { Stethoscope, Building2, Star, ChevronRight, ArrowLeft, MapPin, Phone, Mail, Clock, Calendar } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useStatusBarEffect } from '../../../hooks/useStatusBarEffect';
 
 const styles = StyleSheet.create({
   // Core Layout Styles
@@ -34,6 +36,7 @@ const styles = StyleSheet.create({
   heroSection: {
     height: 250,
     position: 'relative',
+    marginTop: Platform.OS === 'android' ? -RNStatusBar.currentHeight : 0,
   },
   heroImage: {
     width: '100%',
@@ -68,7 +71,7 @@ const styles = StyleSheet.create({
   
 // Hospital info
 hospitalInfoSection: {
-  marginTop: 24,
+  marginTop: 12, // Reduced from 24 to move everything up
 },
 hospitalName: {
   fontSize: 24,
@@ -210,13 +213,14 @@ hospitalName: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    marginBottom: 24,
+    marginBottom: 20, // Reduced from 24
+    marginTop: 12, // Added to reduce gap from hospital info
   },
   statCard: {
     flex: 1,
     backgroundColor: '#fff',
     margin: 6,
-    padding: 16,
+    padding: 12, // Reduced from 16
     borderRadius: 16,
     alignItems: 'center',
     elevation: 3,
@@ -226,25 +230,19 @@ hospitalName: {
     shadowRadius: 8,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 22, // Reduced from 24
     fontFamily: 'Inter_700Bold',
     color: '#1E293B',
-    marginVertical: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-    color: '#64748B',
-    textAlign: 'center',
+    marginVertical: 2, // Reduced from 4
   },
   statIcon: {
-    width: 40,
-    height: 40,
+    width: 36, // Reduced from 40
+    height: 36, // Reduced from 40
     backgroundColor: '#EEF2FF',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6, // Reduced from 8
   },
 
   // Fee container styles
@@ -276,16 +274,16 @@ hospitalName: {
   hospitalHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8, // Reduced from 12
   },
   hospitalHeaderInfo: {
     flex: 1,
     marginLeft: 12,
-    marginTop: 4,
+    marginTop: 0, // Reduced from 4
   },
   hospitalLogo: {
-    width: 48,
-    height: 48,
+    width: 44, // Slightly smaller from 48
+    height: 44, // Slightly smaller from 48
     borderRadius: 8,
     marginRight: 12,
     backgroundColor: '#f8fafc',
@@ -293,7 +291,7 @@ hospitalName: {
 
   // Popular doctors section
   popularDoctorsSection: {
-    marginTop: -4, // Reduced from 16 to move section up
+    marginTop: -8, // Reduced from -4 to create less gap with specialities
   },
 
   // Working Hours styles
@@ -517,6 +515,7 @@ hospitalName: {
     height: 60,
     marginHorizontal: -16,
     marginTop: 10,
+    marginBottom: -28,
   },
   specialitiesContainer: {
     height: '100%',
@@ -598,9 +597,26 @@ hospitalName: {
   },
 
   // ...remaining existing styles...
+  pageContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  
+  contentWrapper: {
+    opacity: 1, // Initial opacity for smooth fade in
+  },
+
+  loadingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    zIndex: 999,
+  },
 });
 
 const HospitalDetail = () => {
+  useStatusBarEffect();
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [hospital, setHospital] = useState(null);
@@ -1156,217 +1172,267 @@ const HospitalDetail = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#4C35E3']}
-            tintColor="#4C35E3"
-          />
-        }
-      >
-        <LinearGradient colors={headerGradient} style={styles.gradientBackground}>
-          {/* Hero Section */}
-          <View style={styles.heroSection}>
-            <Image 
-              source={{ uri: hospital?.image_url }}
-              style={styles.heroImage}
-              resizeMode="cover"
-            />
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={handleBack}
+      <StatusBar style="light" backgroundColor="transparent" translucent={true} />
+      
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4C35E3" />
+        </View>
+      ) : (
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ type: 'timing', duration: 300 }}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#4C35E3']}
+                tintColor="#4C35E3"
+              />
+            }
+          >
+            <LinearGradient 
+              colors={headerGradient} 
+              style={[
+                styles.gradientBackground,
+                { paddingTop: Platform.OS === 'ios' ? 60 : RNStatusBar.currentHeight }
+              ]}
             >
-              <LinearGradient
-                colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
-                style={styles.backButtonWrapper}
+              {/* Hero Section */}
+              <MotiView
+                style={styles.heroSection}
+                from={{ translateY: 20, opacity: 0 }}
+                animate={{ translateY: 0, opacity: 1 }}
+                transition={{
+                  type: 'spring',
+                  delay: 200,
+                  damping: 15,
+                }}
               >
-                <ArrowLeft size={24} color="#1E293B" />
-              </LinearGradient>
-            </TouchableOpacity>
-            {/* Rating Badge */}
-            <View style={styles.ratingBadge}>
-              <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
-              <Text style={styles.ratingText}>{hospital?.rating?.toFixed(1)}</Text>
-            </View>
-          </View>
-
-          {/* Main Content */}
-          <LinearGradient colors={cardGradient} style={styles.contentContainer}>
-            {/* Hospital Info */}
-            <View style={styles.hospitalInfoSection}>
-              <View style={styles.hospitalHeaderRow}>
-                {hospital?.logo_url && (
-                  <Image 
-                    source={{ uri: hospital.logo_url }}
-                    style={styles.hospitalLogo}
-                    resizeMode="contain"
-                  />
-                )}
-                <View style={styles.hospitalHeaderInfo}>
-                  <Text style={styles.hospitalName}>{hospital?.name}</Text>
-                  <TouchableOpacity style={styles.locationButton} onPress={handleMapPress}>
-                    <MapPin size={20} color="#3B39E4" />
-                    <Text style={styles.locationText}>{hospital?.location}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            {/* Stats Section */}
-            {renderStats()}
-
-            {/* Features Section */}
-            <View style={styles.featuresSection}>
-              {/* Working Hours */}
-              {renderWorkingHours()}
-
-              {/* Specialities */}
-              {renderSpecialities()}
-
-              {/* Popular Doctors */}
-              {popularDoctors.length > 0 && (
-                <MotiView style={[styles.section, styles.popularDoctorsSection]}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Popular Doctors</Text>
-                    <TouchableOpacity 
-                      onPress={() => router.push(`/doctors?hospital_id=${id}`)}
-                      style={styles.seeAllButtonWrapper}
-                    >
-                      <LinearGradient
-                        colors={['#4C35E3', '#3B39E4']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.seeAllGradient}
-                      >
-                        <Text style={styles.seeAllText}>See All</Text>
-                        <ChevronRight size={20} color="#FFFFFF" />
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
-                  <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false} 
-                    style={styles.doctorsScroll}
-                    contentContainerStyle={{ paddingHorizontal: 4 }}
+                <Image 
+                  source={{ uri: hospital?.image_url }}
+                  style={styles.heroImage}
+                  resizeMode="cover"
+                />
+                <TouchableOpacity 
+                  style={styles.backButton}
+                  onPress={handleBack}
+                >
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                    style={styles.backButtonWrapper}
                   >
-                    {popularDoctors.slice(0, 3).map((doctor, index) => (
-                      <MotiView
-                        key={doctor.id}
-                        from={{ opacity: 0, scale: 0.9, translateX: 20 }}
-                        animate={{ opacity: 1, scale: 1, translateX: 0 }}
-                        transition={{ 
-                          type: 'spring', 
-                          delay: 600 + (index * 100),
-                          damping: 15
-                        }}
-                      >
-                        <TouchableOpacity 
-                          style={styles.doctorCard}
-                          onPress={() => router.push(`/doctors/${doctor.id}`)}
-                        >
-                          <View style={styles.imageContainer}>
-                            <Image 
-                              source={{ uri: doctor.image_url }}
-                              style={styles.doctorImage}
-                            />
-                          </View>
-                          {renderDoctorInfo(doctor)}
-                        </TouchableOpacity>
-                      </MotiView>
-                    ))}
-                  </ScrollView>
-                </MotiView>
-              )}
-
-              {/* Facilities */}
-              {renderFacilities()}
-
-              {/* Additional Features */}
-              <MotiView 
-                style={styles.section}
-                from={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'timing', delay: 200 }}
-              >
-                <Text style={styles.sectionTitle}>Additional Features</Text>
-                <View style={styles.featuresGrid}>
-                  {hospital.insurance_accepted && (
-                    <View style={styles.featureItem}>
-                      <MaterialCommunityIcons name="shield-check" size={24} color="#6B4EFF" />
-                      <Text style={styles.featureText}>Insurance Accepted</Text>
-                    </View>
-                  )}
-                  {hospital.parking_available && (
-                    <View style={styles.featureItem}>
-                      <MaterialCommunityIcons name="parking" size={24} color="#6B4EFF" />
-                      <Text style={styles.featureText}>Parking Available</Text>
-                    </View>
-                  )}
-                  {hospital.ambulance_available && (
-                    <View style={styles.featureItem}>
-                      <MaterialCommunityIcons name="ambulance" size={24} color="#6B4EFF" />
-                      <Text style={styles.featureText}>24/7 Ambulance</Text>
-                    </View>
-                  )}
+                    <ArrowLeft size={24} color="#1E293B" />
+                  </LinearGradient>
+                </TouchableOpacity>
+                {/* Rating Badge */}
+                <View style={styles.ratingBadge}>
+                  <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+                  <Text style={styles.ratingText}>{hospital?.rating?.toFixed(1)}</Text>
                 </View>
               </MotiView>
 
-              {/* About Section */}
-              {hospital.description && (
-                <MotiView 
-                  style={styles.section}
-                  from={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: 'timing', delay: 200 }}
-                >
-                  <Text style={styles.sectionTitle}>About</Text>
-                  <LinearGradient
-                    colors={['#F8FAFC', '#EEF2FF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.aboutSection}
-                  >
-                    <Text style={styles.description}>{hospital.description}</Text>
-                  </LinearGradient>
-                </MotiView>
-              )}
-
-              {/* Contact Information */}
-              <LinearGradient
-                colors={['#F8FAFC', '#EEF2FF']}
-                style={styles.contactSection}
+              {/* Main Content */}
+              <MotiView
+                from={{ translateY: 30, opacity: 0 }}
+                animate={{ translateY: 0, opacity: 1 }}
+                transition={{
+                  type: 'spring',
+                  delay: 300,
+                  damping: 15,
+                }}
               >
-                <Text style={styles.sectionTitle}>Contact Information</Text>
-                {hospital.emergency_contact && (
-                  <TouchableOpacity style={styles.contactButton}>
-                    <Phone size={20} color="#fff" />
-                    <Text style={styles.contactButtonText}>{hospital.emergency_contact}</Text>
-                  </TouchableOpacity>
-                )}
-                {hospital.email && (
-                  <TouchableOpacity style={styles.contactButton}>
-                    <Mail size={20} color="#fff" />
-                    <Text style={styles.contactButtonText}>{hospital.email}</Text>
-                  </TouchableOpacity>
-                )}
-              </LinearGradient>
-            </View>
-          </LinearGradient>
-        </LinearGradient>
-      </ScrollView>
+                <LinearGradient colors={cardGradient} style={styles.contentContainer}>
+                  {/* Hospital Info */}
+                  <View style={styles.hospitalInfoSection}>
+                    <View style={styles.hospitalHeaderRow}>
+                      {hospital?.logo_url && (
+                        <Image 
+                          source={{ uri: hospital.logo_url }}
+                          style={styles.hospitalLogo}
+                          resizeMode="contain"
+                        />
+                      )}
+                      <View style={styles.hospitalHeaderInfo}>
+                        <Text style={styles.hospitalName}>{hospital?.name}</Text>
+                        <TouchableOpacity style={styles.locationButton} onPress={handleMapPress}>
+                          <MapPin size={20} color="#3B39E4" />
+                          <Text style={styles.locationText}>{hospital?.location}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
 
-      <FloatingBookButton
-        onPress={handleBookAppointment}
-        scrollY={scrollY}
-      />
+                  {/* Stats Section */}
+                  {renderStats()}
+
+                  {/* Features Section */}
+                  <View style={styles.featuresSection}>
+                    {/* Working Hours */}
+                    {renderWorkingHours()}
+
+                    {/* Specialities */}
+                    {renderSpecialities()}
+
+                    {/* Popular Doctors */}
+                    {popularDoctors.length > 0 && (
+                      <MotiView style={[styles.section, styles.popularDoctorsSection]}>
+                        <View style={styles.sectionHeader}>
+                          <Text style={styles.sectionTitle}>Popular Doctors</Text>
+                          <TouchableOpacity 
+                            onPress={() => router.push(`/doctors?hospital_id=${id}`)}
+                            style={styles.seeAllButtonWrapper}
+                          >
+                            <LinearGradient
+                              colors={['#4C35E3', '#3B39E4']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={styles.seeAllGradient}
+                            >
+                              <Text style={styles.seeAllText}>See All</Text>
+                              <ChevronRight size={20} color="#FFFFFF" />
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        </View>
+                        <ScrollView 
+                          horizontal 
+                          showsHorizontalScrollIndicator={false} 
+                          style={styles.doctorsScroll}
+                          contentContainerStyle={{ paddingHorizontal: 4 }}
+                        >
+                          {popularDoctors.slice(0, 3).map((doctor, index) => (
+                            <MotiView
+                              key={doctor.id}
+                              from={{ opacity: 0, scale: 0.9, translateX: 20 }}
+                              animate={{ opacity: 1, scale: 1, translateX: 0 }}
+                              transition={{ 
+                                type: 'spring', 
+                                delay: 600 + (index * 100),
+                                damping: 15
+                              }}
+                            >
+                              <TouchableOpacity 
+                                style={styles.doctorCard}
+                                onPress={() => router.push(`/doctors/${doctor.id}`)}
+                              >
+                                <View style={styles.imageContainer}>
+                                  <Image 
+                                    source={{ uri: doctor.image_url }}
+                                    style={styles.doctorImage}
+                                  />
+                                </View>
+                                {renderDoctorInfo(doctor)}
+                              </TouchableOpacity>
+                            </MotiView>
+                          ))}
+                        </ScrollView>
+                      </MotiView>
+                    )}
+
+                    {/* Facilities */}
+                    {renderFacilities()}
+
+                    {/* Additional Features */}
+                    <MotiView 
+                      style={styles.section}
+                      from={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ type: 'timing', delay: 200 }}
+                    >
+                      <Text style={styles.sectionTitle}>Additional Features</Text>
+                      <View style={styles.featuresGrid}>
+                        {hospital.insurance_accepted && (
+                          <View style={styles.featureItem}>
+                            <MaterialCommunityIcons name="shield-check" size={24} color="#6B4EFF" />
+                            <Text style={styles.featureText}>Insurance Accepted</Text>
+                          </View>
+                        )}
+                        {hospital.parking_available && (
+                          <View style={styles.featureItem}>
+                            <MaterialCommunityIcons name="parking" size={24} color="#6B4EFF" />
+                            <Text style={styles.featureText}>Parking Available</Text>
+                          </View>
+                        )}
+                        {hospital.ambulance_available && (
+                          <View style={styles.featureItem}>
+                            <MaterialCommunityIcons name="ambulance" size={24} color="#6B4EFF" />
+                            <Text style={styles.featureText}>24/7 Ambulance</Text>
+                          </View>
+                        )}
+                      </View>
+                    </MotiView>
+
+                    {/* About Section */}
+                    {hospital.description && (
+                      <MotiView 
+                        style={styles.section}
+                        from={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: 'timing', delay: 200 }}
+                      >
+                        <Text style={styles.sectionTitle}>About</Text>
+                        <LinearGradient
+                          colors={['#F8FAFC', '#EEF2FF']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.aboutSection}
+                        >
+                          <Text style={styles.description}>{hospital.description}</Text>
+                        </LinearGradient>
+                      </MotiView>
+                    )}
+
+                    {/* Contact Information */}
+                    <LinearGradient
+                      colors={['#F8FAFC', '#EEF2FF']}
+                      style={styles.contactSection}
+                    >
+                      <Text style={styles.sectionTitle}>Contact Information</Text>
+                      {hospital.emergency_contact && (
+                        <TouchableOpacity style={styles.contactButton}>
+                          <Phone size={20} color="#fff" />
+                          <Text style={styles.contactButtonText}>{hospital.emergency_contact}</Text>
+                        </TouchableOpacity>
+                      )}
+                      {hospital.email && (
+                        <TouchableOpacity style={styles.contactButton}>
+                          <Mail size={20} color="#fff" />
+                          <Text style={styles.contactButtonText}>{hospital.email}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </LinearGradient>
+                  </View>
+                </LinearGradient>
+              </MotiView>
+            </LinearGradient>
+          </ScrollView>
+
+          <MotiView
+            from={{ translateY: 100, opacity: 0 }}
+            animate={{ translateY: 0, opacity: 1 }}
+            transition={{
+              type: 'spring',
+              delay: 400,
+              damping: 15,
+            }}
+          >
+            <FloatingBookButton
+              onPress={handleBookAppointment}
+              scrollY={scrollY}
+            />
+          </MotiView>
+        </MotiView>
+      )}
     </View>
   );
 };
 
-export default HospitalDetail;
+export default React.memo(HospitalDetail);

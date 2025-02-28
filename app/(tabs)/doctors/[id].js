@@ -1,494 +1,413 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { handleScroll } from '../_layout';
-import defaultAvatar from '../../../assets/default-avatar.png';
-import LoadingAnimation from '../../../components/LoadingAnimation';
-import { fetchDoctorById, transformDoctorData } from '../../../services/doctorService';
+"use client"
 
-// Sample doctors data (combine all doctors from hospitals)
-const doctors = [
-  {
-    id: '101',
-    name: 'Dr. Arun Kumar',
-    specialty: 'Cardiology',
-    image: require('../../../assets/main-logos/icon.png'),
-    image: require('../../../assets/main-logos/icon.png'),
-    experience: '15 years',
+import { useState } from "react"
+import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, SafeAreaView, StatusBar } from "react-native"
+import { Ionicons, FontAwesome, MaterialIcons } from "@expo/vector-icons"
+import { useNavigation } from "@react-navigation/native"
+
+export default function DoctorProfile() {
+  const navigation = useNavigation()
+  const [activeTab, setActiveTab] = useState("Feedbacks")
+
+  // Sample doctor data
+  const doctor = {
+    name: "Dr. Sarah Johnson",
+    specialization: "Cardiologist",
     rating: 4.8,
-    qualifications: 'MBBS, MD (Cardiology)',
-    languages: ['English', 'Malayalam', 'Hindi'],
-    consultationFee: '₹800',
-    about: 'Dr. Arun Kumar is a highly experienced cardiologist with expertise in interventional cardiology and heart disease management. He has successfully treated thousands of patients and is known for his patient-centric approach.',
-    specializations: [
-      'Interventional Cardiology',
-      'Heart Disease Management',
-      'Cardiac Rehabilitation',
-      'Preventive Cardiology'
-    ],
-    availability: {
-      monday: '9:00 AM - 5:00 PM',
-      tuesday: '9:00 AM - 5:00 PM',
-      wednesday: '9:00 AM - 5:00 PM',
-      thursday: '9:00 AM - 5:00 PM',
-      friday: '9:00 AM - 5:00 PM',
-      saturday: '9:00 AM - 1:00 PM'
-    },
-    hospital: {
-      id: '1',
-      name: 'KIMS Hospital',
-      location: 'Kottakkal Main Road'
-    }
+    reviews: 128,
+    consultationDuration: "30m",
+    consultationFee: "990 PKR (Rs)",
+    visits: "2.3k",
+    patients: "1.1k",
+    experience: "2 years",
+    image: "https://randomuser.me/api/portraits/women/76.jpg",
   }
-  // ... add other doctors
-];
 
-// Add default doctor structure
-const defaultDoctor = {
-  id: '',
-  name: 'Unknown Doctor',
-  specialty: 'General Medicine',
-  image: null,
-  experience: 'N/A',
-  rating: 0,
-  qualifications: '',
-  languages: [],
-  consultationFee: 'N/A',
-  about: 'Information not available',
-  specializations: [],
-  availability: {
-    monday: '',
-    tuesday: '',
-    wednesday: '',
-    thursday: '',
-    friday: '',
-    saturday: ''
-  },
-  hospital: {
-    id: '',
-    name: 'Unknown Hospital',
-    location: 'Location not available'
-  }
-};
+  const renderStars = (rating) => {
+    const stars = []
+    const fullStars = Math.floor(rating)
+    const halfStar = rating % 1 >= 0.5
 
-export default function DoctorDetail() {
-  const params = useLocalSearchParams();
-  const router = useRouter();
-  // Initialize doctor state with defaultDoctor
-  const [doctor, setDoctor] = useState(defaultDoctor);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Update the useMemo with better error handling
-  const parsedDoctorData = useMemo(() => {
-    if (!params?.doctorData) return defaultDoctor;
-    try {
-      const parsed = JSON.parse(params.doctorData) || {};
-      return {
-        ...defaultDoctor,
-        ...parsed,
-        hospital: { 
-          ...defaultDoctor.hospital, 
-          ...(parsed?.hospital || {}) 
-        },
-        availability: { 
-          ...defaultDoctor.availability, 
-          ...(parsed?.availability || {}) 
-        },
-        specializations: parsed?.specializations || [],
-        languages: parsed?.languages || []
-      };
-    } catch (e) {
-      console.error('Error parsing doctor data:', e);
-      return defaultDoctor;
-    }
-  }, [params?.doctorData]);
-
-  useEffect(() => {
-    const loadDoctorData = async () => {
-      try {
-        setIsLoading(true);
-        let doctorInfo = defaultDoctor;
-
-        if (params?.doctorData) {
-          try {
-            const parsed = JSON.parse(params.doctorData) || {};
-            doctorInfo = {
-              ...defaultDoctor,
-              ...parsed,
-              hospital: { 
-                ...defaultDoctor.hospital, 
-                ...(parsed?.hospital || {}) 
-              },
-              availability: { 
-                ...defaultDoctor.availability, 
-                ...(parsed?.availability || {}) 
-              },
-              specializations: parsed?.specializations || [],
-              languages: parsed?.languages || []
-            };
-          } catch (e) {
-            console.error('Error parsing doctor data:', e);
-          }
-        } else if (params?.id) {
-          const rawDoctorData = await fetchDoctorById(params.id);
-          if (rawDoctorData) {
-            const transformed = transformDoctorData(rawDoctorData);
-            doctorInfo = {
-              ...defaultDoctor,
-              ...transformed,
-              hospital: { 
-                ...defaultDoctor.hospital, 
-                ...(transformed?.hospital || {}) 
-              },
-              availability: { 
-                ...defaultDoctor.availability, 
-                ...(transformed?.availability || {}) 
-              }
-            };
-          }
-        }
-
-        setDoctor(doctorInfo);
-        setError(null);
-      } catch (err) {
-        setError(err.message);
-        console.error('Error loading doctor:', err);
-        setDoctor(defaultDoctor);
-      } finally {
-        setIsLoading(false);
+    for (let i = 0; i < 5; i++) {
+      if (i < fullStars) {
+        stars.push(<FontAwesome key={i} name="star" size={16} color="#FFD700" />)
+      } else if (i === fullStars && halfStar) {
+        stars.push(<FontAwesome key={i} name="star-half-o" size={16} color="#FFD700" />)
+      } else {
+        stars.push(<FontAwesome key={i} name="star-o" size={16} color="#FFD700" />)
       }
-    };
+    }
 
-    loadDoctorData();
-  }, [params?.id, params?.doctorData]);
-
-  // Add safety check before rendering
-  if (!doctor || typeof doctor !== 'object') {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.errorText}>Invalid doctor data</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return stars
   }
-
-  if (isLoading) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <LoadingAnimation />
-      </View>
-    );
-  }
-
-  if (error || !doctor) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.errorText}>Could not load doctor information</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const weekDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => router.back()}
-      >
-        <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
-      </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      <ScrollView 
-        style={styles.scrollView}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-      >
-        <View style={styles.header}>
-          <Image 
-            source={doctor.image ? doctor.image : defaultAvatar} 
-            style={styles.doctorImage}
-            defaultSource={defaultAvatar}
-          />
-          <View style={styles.overlay} />
-          <View style={styles.headerContent}>
-            <Text style={styles.name}>{doctor.name}</Text>
-            <Text style={styles.specialty}>{doctor.specialty}</Text>
-            <View style={styles.statsRow}>
-              <View style={styles.stat}>
-                <MaterialCommunityIcons name="star" size={20} color="#0000FF" />
-                <Text style={styles.statText}>{doctor.rating}</Text>
-              </View>
-              <View style={styles.stat}>
-                <MaterialCommunityIcons name="clock-outline" size={20} color="#0000FF" />
-                <Text style={styles.statText}>{doctor.experience}</Text>
-              </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Doctor</Text>
+        <TouchableOpacity style={styles.bookmarkButton}>
+          <Ionicons name="bookmark-outline" size={24} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Doctor Info Section */}
+        <View style={styles.doctorInfoContainer}>
+          <Image source={{ uri: doctor.image }} style={styles.doctorImage} />
+          <Text style={styles.doctorName}>{doctor.name}</Text>
+          <Text style={styles.specialization}>{doctor.specialization}</Text>
+
+          <View style={styles.ratingContainer}>
+            {renderStars(doctor.rating)}
+            <Text style={styles.reviewCount}> ({doctor.reviews} reviews)</Text>
+          </View>
+
+          <View style={styles.consultationInfo}>
+            <View style={styles.consultationItem}>
+              <Ionicons name="time-outline" size={18} color="#666" />
+              <Text style={styles.consultationText}>{doctor.consultationDuration}</Text>
+            </View>
+            <View style={styles.consultationDivider} />
+            <View style={styles.consultationItem}>
+              <Ionicons name="cash-outline" size={18} color="#666" />
+              <Text style={styles.consultationText}>{doctor.consultationFee}</Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.content}>
-          {/* Hospital Info */}
-          <TouchableOpacity 
-            style={styles.hospitalCard}
-            onPress={() => router.push(`/hospitals/${doctor.hospital.id}`)}
-          >
-            <MaterialCommunityIcons name="hospital-building" size={24} color="#6B4EFF" />
-            <View style={styles.hospitalInfo}>
-              <Text style={styles.hospitalName}>{doctor.hospital.name}</Text>
-              <Text style={styles.hospitalLocation}>{doctor.hospital.location}</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#666" />
-          </TouchableOpacity>
-
-          {/* About Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About</Text>
-            <Text style={styles.aboutText}>{doctor.about}</Text>
+        {/* Stats Section */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Ionicons name="eye-outline" size={24} color="#4A80F0" />
+            <Text style={styles.statValue}>{doctor.visits}</Text>
+            <Text style={styles.statLabel}>Visits</Text>
           </View>
 
-          {/* Specializations Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Specializations</Text>
-            {doctor.specializations.map((spec, index) => (
-              <View key={index} style={styles.specializationItem}>
-                <MaterialCommunityIcons name="check-circle" size={20} color="#6B4EFF" />
-                <Text style={styles.specializationText}>{spec}</Text>
-              </View>
-            ))}
+          <View style={styles.statCard}>
+            <Ionicons name="people-outline" size={24} color="#4A80F0" />
+            <Text style={styles.statValue}>{doctor.patients}</Text>
+            <Text style={styles.statLabel}>Patients</Text>
           </View>
 
-          {/* Languages Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Languages</Text>
-            <View style={styles.languagesContainer}>
-              {doctor.languages.map((language, index) => (
-                <View key={index} style={styles.languageTag}>
-                  <Text style={styles.languageText}>{language}</Text>
+          <View style={styles.statCard}>
+            <MaterialIcons name="work-outline" size={24} color="#4A80F0" />
+            <Text style={styles.statValue}>{doctor.experience}</Text>
+            <Text style={styles.statLabel}>Experience</Text>
+          </View>
+        </View>
+
+        {/* Tabs Section */}
+        <View style={styles.tabsContainer}>
+          {["Feedbacks", "Docs", "About"].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.activeTab]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Tab Content (placeholder) */}
+        <View style={styles.tabContent}>
+          {activeTab === "Feedbacks" && (
+            <View style={styles.feedbackContainer}>
+              <Text style={styles.feedbackTitle}>Patient Feedbacks</Text>
+              {/* Sample feedback items */}
+              {[1, 2, 3].map((item) => (
+                <View key={item} style={styles.feedbackItem}>
+                  <View style={styles.feedbackHeader}>
+                    <Image
+                      source={{
+                        uri: `https://randomuser.me/api/portraits/${item % 2 === 0 ? "women" : "men"}/${item * 10}.jpg`,
+                      }}
+                      style={styles.feedbackAvatar}
+                    />
+                    <View>
+                      <Text style={styles.feedbackName}>Patient {item}</Text>
+                      <View style={{ flexDirection: "row" }}>{renderStars(4 + item * 0.2).slice(0, 5)}</View>
+                    </View>
+                    <Text style={styles.feedbackDate}>2 days ago</Text>
+                  </View>
+                  <Text style={styles.feedbackText}>
+                    Great doctor! Very professional and knowledgeable. I highly recommend Dr. Johnson for anyone looking
+                    for a cardiologist.
+                  </Text>
                 </View>
               ))}
             </View>
-          </View>
+          )}
 
-          {/* Availability Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Availability</Text>
-            {weekDays.map((day) => (
-              doctor.availability[day] && (
-                <View key={day} style={styles.availabilityRow}>
-                  <Text style={styles.dayText}>{day.charAt(0).toUpperCase() + day.slice(1)}</Text>
-                  <Text style={styles.timeText}>{doctor.availability[day]}</Text>
-                </View>
-              )
-            ))}
-          </View>
+          {activeTab === "Docs" && (
+            <View style={styles.docsContainer}>
+              <Text style={styles.sectionTitle}>Documents</Text>
+              <Text style={styles.placeholderText}>Doctor's documents and certificates will appear here.</Text>
+            </View>
+          )}
 
-          {/* Book Appointment Button */}
-          <TouchableOpacity 
-            style={styles.bookButton}
-            onPress={() => router.push(`/appointment/${doctor.id}`)}
-          >
-            <Text style={styles.bookButtonText}>Book Appointment</Text>
-            <Text style={styles.consultationFee}>Consultation Fee: {doctor.consultationFee}</Text>
-          </TouchableOpacity>
+          {activeTab === "About" && (
+            <View style={styles.aboutContainer}>
+              <Text style={styles.sectionTitle}>About Doctor</Text>
+              <Text style={styles.aboutText}>
+                Dr. Sarah Johnson is a board-certified cardiologist with over 2 years of experience in treating various
+                heart conditions. She completed her medical degree from Harvard Medical School and residency at Johns
+                Hopkins Hospital.
+                {"\n\n"}
+                Dr. Johnson specializes in preventive cardiology, heart failure management, and cardiac rehabilitation.
+                She is committed to providing personalized care to all her patients.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
-    </View>
-  );
+
+      {/* Booking Button */}
+      <View style={styles.bookingButtonContainer}>
+        <TouchableOpacity style={styles.bookingButton}>
+          <Text style={styles.bookingButtonText}>Book This Doctor</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
-  },
-  backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
-    left: 20,
-    zIndex: 1,
-    padding: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 20,
-  },
-  scrollView: {
-    flex: 1,
+    backgroundColor: "#f8f9fa",
   },
   header: {
-    height: 300,
-    position: 'relative',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  bookmarkButton: {
+    padding: 8,
+  },
+  doctorInfoContainer: {
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#fff",
   },
   doctorImage: {
-    width: '100%',
-    height: '100%',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  headerContent: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    padding: 10,
-    borderRadius: 10,
-  },
-  name: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  specialty: {
-    fontSize: 18,
-    color: '#333',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     marginBottom: 12,
   },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  doctorName: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
   },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  statText: {
-    color: '#0000FF',
-    marginLeft: 4,
+  specialization: {
     fontSize: 16,
+    color: "#666",
+    marginBottom: 8,
   },
-  content: {
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  reviewCount: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 4,
+  },
+  consultationInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0f4f8",
+    borderRadius: 12,
+    padding: 12,
+    width: "90%",
+  },
+  consultationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+  },
+  consultationDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: "#ddd",
+  },
+  consultationText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: "#555",
+  },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginVertical: 16,
+  },
+  statCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    width: "30%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 4,
+  },
+  tabsContainer: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  activeTab: {
+    backgroundColor: "#4A80F0",
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#666",
+  },
+  activeTabText: {
+    color: "#fff",
+  },
+  tabContent: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginHorizontal: 16,
+    padding: 16,
+    marginBottom: 100, // Space for the booking button
+  },
+  feedbackContainer: {
+    gap: 16,
+  },
+  feedbackTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 12,
+    color: "#333",
+  },
+  feedbackItem: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  feedbackHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  feedbackAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  feedbackName: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+    marginBottom: 2,
+  },
+  feedbackDate: {
+    fontSize: 12,
+    color: "#999",
+    marginLeft: "auto",
+  },
+  feedbackText: {
+    fontSize: 14,
+    color: "#555",
+    lineHeight: 20,
+  },
+  docsContainer: {
+    alignItems: "center",
     padding: 20,
   },
-  hospitalCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  hospitalInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  hospitalName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-  },
-  hospitalLocation: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  section: {
-    marginBottom: 24,
+  aboutContainer: {
+    padding: 8,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
     marginBottom: 12,
+    color: "#333",
   },
-  aboutText: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 24,
-  },
-  specializationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  specializationText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#333',
-  },
-  languagesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  languageTag: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  languageText: {
-    color: '#666',
+  placeholderText: {
     fontSize: 14,
-  },
-  availabilityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  dayText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  timeText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  bookButton: {
-    backgroundColor: '#6B4EFF',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    color: "#999",
+    textAlign: "center",
     marginTop: 20,
   },
-  bookButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  consultationFee: {
-    color: '#fff',
+  aboutText: {
     fontSize: 14,
-    opacity: 0.9,
+    color: "#555",
+    lineHeight: 22,
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  bookingButtonContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
   },
-  errorText: {
+  bookingButton: {
+    backgroundColor: "#4A80F0",
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  bookingButtonText: {
+    color: "#fff",
     fontSize: 16,
-    color: '#666',
-    marginBottom: 16,
+    fontWeight: "bold",
   },
-  retryButton: {
-    backgroundColor: '#3B39E4',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-});
+})
+

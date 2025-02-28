@@ -45,6 +45,18 @@ const CustomTabBar = () => {
   const pathname = usePathname();
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
+  // Define routes where tab bar should be visible
+  const showTabBarRoutes = [
+    '/home',
+    '/hospitals',
+    '/appointment',
+    '/profile',
+    '/lab-records'  // Added lab-records route
+  ];
+
+  // Check if tab bar should be visible
+  const shouldShowTabBar = showTabBarRoutes.includes(pathname);
+
   useEffect(() => {
     const keyboardWillShow = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
@@ -61,7 +73,7 @@ const CustomTabBar = () => {
     };
   }, []);
 
-  if (isKeyboardVisible) {
+  if (isKeyboardVisible || !shouldShowTabBar) {
     return null;
   }
 

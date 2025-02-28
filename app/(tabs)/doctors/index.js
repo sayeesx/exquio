@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -8,13 +8,85 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
-  RefreshControl 
+  RefreshControl,
+  Platform,
+  StatusBar,
+  Animated,
+  Easing
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../../lib/supabase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import { FloatingBookButton } from '../../../components/FloatingBookButton';
+import { useStatusBarEffect } from '../../../hooks/useStatusBarEffect';
+
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient);
+
+const BookNowButton = ({ onPress }) => {
+  const translateX = useRef(new Animated.Value(-200)).current;
+
+  useEffect(() => {
+    let isMounted = true;
+    let shimmerAnimation;
+
+    if (isMounted) {
+      shimmerAnimation = Animated.loop(
+        Animated.timing(translateX, {
+          toValue: 400,
+          duration: 1500,
+          useNativeDriver: true,
+          easing: Easing.ease,
+        })
+      );
+      shimmerAnimation.start();
+    }
+
+    return () => {
+      isMounted = false;
+      if (shimmerAnimation) {
+        shimmerAnimation.stop();
+      }
+    };
+  }, []);
+
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.bookNowButton}>
+      <LinearGradient
+        colors={["#4C35E3", "#4B47E5", "#5465FF"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.buttonGradient}
+      >
+        <View style={styles.buttonContent}>
+          <Text style={styles.bookNowText}>Book Now</Text>
+          <View style={styles.shimmerContainer}>
+            <Animated.View
+              style={[
+                styles.shimmer,
+                {
+                  transform: [{ translateX }],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={['transparent', 'rgba(255,255,255,0.4)', 'transparent']}
+                locations={[0.35, 0.5, 0.65]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </Animated.View>
+          </View>
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+};
 
 export default function Doctors() {
+  useStatusBarEffect();
   const { hospital_id } = useLocalSearchParams();
   const router = useRouter();
   const [doctors, setDoctors] = useState([]);
@@ -30,7 +102,10 @@ export default function Doctors() {
         setLoading(true);
         const query = supabase
           .from('doctors')
-          .select('*')
+          .select(`
+            *,
+            specialties:specialty_id (name)
+          `)
           .order('rating', { ascending: false });
 
         if (hospital_id) {
@@ -64,7 +139,7 @@ export default function Doctors() {
       const searchTerm = searchQuery.toLowerCase();
       const filtered = doctors.filter(doctor => {
         const doctorName = doctor?.name?.toLowerCase() || '';
-        const doctorSpecialty = doctor?.specialty?.toLowerCase() || '';
+        const doctorSpecialty = doctor?.specialties?.name?.toLowerCase() || '';
         return doctorName.includes(searchTerm) || doctorSpecialty.includes(searchTerm);
       });
       setFilteredDoctors(filtered);
@@ -101,38 +176,55 @@ export default function Doctors() {
     );
   }
 
+  const EmptyDoctorList = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialCommunityIcons name="doctor" size={64} color="#6B4EFF" />
+      <Text style={styles.emptyText}>No doctors found for this hospital.</Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
-        </TouchableOpacity>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.pageTitle}>Find Your Doctor</Text>
-          {hospital && (
-            <Text style={styles.hospitalName}>{hospital.name}</Text>
-          )}
+      <LinearGradient
+        colors={["#4C35E3", "#4B47E5", "#5465FF"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[
+          styles.gradientHeader,
+          { paddingTop: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight + 10 }
+        ]}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerTextContainer}>
+            <Text style={[styles.pageTitle, { color: '#fff' }]}>Find Your Doctor</Text>
+            {hospital && (
+              <Text style={[styles.hospitalName, { color: '#fff' }]}>{hospital.name}</Text>
+            )}
+          </View>
         </View>
-      </View>
+
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <MaterialIcons name="search" size={20} color="#666" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search doctors..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#666"
+            />
+          </View>
+        </View>
+      </LinearGradient>
 
       <FlatList
-        ListHeaderComponent={
-          <View style={styles.searchContainer}>
-            <View style={styles.searchBar}>
-              <MaterialIcons name="search" size={20} color="#666" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search doctors..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholderTextColor="#666"
-              />
-            </View>
-          </View>
-        }
+        ListEmptyComponent={EmptyDoctorList}
         data={filteredDoctors}
         keyExtractor={(item) => item.id.toString()}
         numColumns={2}
@@ -147,34 +239,46 @@ export default function Doctors() {
         }
         renderItem={({ item }) => (
           <TouchableOpacity 
-            style={styles.doctorCard}
+            style={[styles.doctorCard, { height: 240 }]} // Increased height
             onPress={() => router.push(`/doctors/${item.id}`)}
           >
             <Image
               source={{ uri: item.image_url }}
               style={styles.doctorImage}
-              resizeMode="contain"
+              resizeMode="cover"
             />
             <View style={styles.doctorInfo}>
-              <Text style={styles.doctorName} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.specialtyText} numberOfLines={1}>{item.specialty}</Text>
-              <View style={styles.statsRow}>
-                <View style={styles.ratingContainer}>
-                  <MaterialCommunityIcons name="star" size={12} color="#FFD700" />
-                  <Text style={styles.ratingText}>{item.rating?.toFixed(1) || '4.5'}</Text>
+              <View style={styles.mainInfo}>
+                <Text style={styles.doctorName} numberOfLines={1}>{item.name}</Text>
+                <Text style={styles.specialtyText} numberOfLines={1}>
+                  {item.specialties?.name || 'Specialist'}
+                </Text>
+              </View>
+              
+              <View style={styles.statsContainer}>
+                <View style={styles.statsRow}>
+                  <View style={styles.ratingContainer}>
+                    <MaterialCommunityIcons name="star" size={12} color="#FFD700" />
+                    <Text style={styles.ratingText}>{item.rating?.toFixed(1) || '4.5'}</Text>
+                  </View>
+                  <View style={styles.feeContainer}>
+                    <MaterialCommunityIcons name="currency-inr" size={12} color="#2E7D32" />
+                    <Text style={styles.feeText}>
+                      {item.consultation_fee || 'N/A'}
+                    </Text>
+                  </View>
                 </View>
+
                 {item.experience && (
                   <View style={styles.experienceContainer}>
                     <MaterialCommunityIcons name="briefcase-outline" size={10} color="#6B4EFF" />
                     <Text style={styles.experienceText}>{item.experience}y</Text>
                   </View>
                 )}
-              </View>
-              <View style={styles.feeContainer}>
-                <MaterialCommunityIcons name="currency-inr" size={12} color="#2E7D32" />
-                <Text style={styles.feeText}>
-                  {item.consultation_fee || 'N/A'}
-                </Text>
+
+                <BookNowButton 
+                  onPress={() => router.push(`/doctors/${item.id}`)}
+                />
               </View>
             </View>
           </TouchableOpacity>
@@ -190,45 +294,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingTop: 16,
+  },
+  gradientHeader: {
+    paddingTop: Platform.OS === "ios" ? 60 : StatusBar.currentHeight + 10,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    marginTop: Platform.OS === 'android' ? -StatusBar.currentHeight : 0,
+    zIndex: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 30,
   },
   headerTextContainer: {
     flex: 1,
     marginLeft: 12,
+    marginTop: 38,
   },
   backButton: {
     padding: 8,
     marginRight: 12,
+    marginTop: 15,
   },
   pageTitle: {
     fontSize: 24,
     fontFamily: 'Inter_600SemiBold',
-    color: '#1A1A1A',
-    right: 10,
-    marginTop: 14,
+    color: '#fff',
+    marginBottom: 4,
   },
   hospitalName: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: '#6B4EFF',
-    marginTop: 2,
-    right: 10,
+    color: '#fff',
+    opacity: 0.9,
   },
   searchContainer: {
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginTop: 16,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 32,
     paddingHorizontal: 12,
     height: 44,
   },
@@ -261,80 +372,86 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     overflow: 'hidden',
-    height: 160, // Adjusted total height
+    height: 240, // Increased height
   },
   doctorImage: {
-    width: '100%',
-    height: 60, // Reduced image height
+    width: '90%',
+    height: '60%',
     backgroundColor: '#F5F5F5',
-    resizeMode: 'contain' // Added to maintain aspect ratio
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   doctorInfo: {
-    padding: 6, // Reduced from 8
+    padding: 16, // Increased from 10
     flex: 1,
     justifyContent: 'space-between',
   },
+  mainInfo: {
+    marginBottom: 8,
+  },
   doctorName: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
     color: '#1A1A1A',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   specialtyText: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    color: '#666666',
-    marginBottom: 4,
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    color: '#6B4EFF',
+    backgroundColor: '#F0EEFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  statsContainer: {
+    gap: 8,
   },
   statsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 2,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF9E6',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  ratingText: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-    color: '#FFB800',
-    marginLeft: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   experienceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F0EEFF',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  experienceText: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    color: '#6B4EFF',
-    marginLeft: 2,
-  },
-  priceContainer: {
+  feeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
     backgroundColor: '#E8F5E9',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
     alignSelf: 'flex-start',
   },
-  priceText: {
-    fontSize: 12,
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 16,
     fontFamily: 'Inter_500Medium',
-    color: '#2E7D32',
-    marginLeft: 2,
+    color: '#666',
+    marginTop: 12,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -342,20 +459,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
-  feeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
   feeText: {
     fontSize: 11,
     fontFamily: 'Inter_500Medium',
     color: '#2E7D32',
     marginLeft: 2,
+  },
+  bookNowButton: {
+    marginTop: -15,
+    height: 36,
+    overflow: 'hidden',
+    borderRadius: 8,
+  },
+  buttonGradient: {
+    flex: 1,
+    borderRadius: 8,
+  },
+  buttonContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  shimmerContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  shimmer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.5,
+  },
+  bookNowText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    zIndex: 1,
   },
 });

@@ -1,28 +1,11 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { FontAwesome5 } from "@expo/vector-icons";
 
 const filterData = [
-  { 
-    id: 'all', 
-    icon: 'border-all', // Changed from 'th-large'
-    label: 'All' 
-  },
-  { 
-    id: 'multi', 
-    icon: 'hospital', // Changed from 'hospital-alt'
-    label: 'Multi' 
-  },
-  { 
-    id: 'clinic', 
-    icon: 'stethoscope', // Changed from 'user-md'
-    label: 'Clinic' 
-  },
-  { 
-    id: 'ayurveda', 
-    icon: 'leaf', // Changed from 'spa'
-    label: 'Ayurveda' 
-  }
+  { id: 'all', label: 'All' },
+  { id: 'multi', label: 'Multi' },
+  { id: 'clinic', label: 'Clinic' },
+  { id: 'ayurveda', label: 'Ayurveda' }
 ];
 
 const FilterButtons = ({ activeFilter, onFilterChange }) => {
@@ -73,28 +56,12 @@ const FilterButtons = ({ activeFilter, onFilterChange }) => {
             style={styles.filterButton}
             onPress={() => onFilterChange(filter.id)}
           >
-            <View style={styles.buttonContent}>
-              <FontAwesome5
-                name={filter.icon}
-                size={16}
-                color={activeFilter === filter.id ? '#fff' : '#64748B'}
-                style={[
-                  styles.icon,
-                  activeFilter === filter.id && {
-                    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 3,
-                  }
-                ]}
-                solid
-              />
-              <Text style={[
-                styles.filterText,
-                activeFilter === filter.id && styles.activeText
-              ]}>
-                {filter.label}
-              </Text>
-            </View>
+            <Text style={[
+              styles.filterText,
+              activeFilter === filter.id && styles.activeText
+            ]}>
+              {filter.label}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -125,11 +92,11 @@ const styles = StyleSheet.create({
   activeBackground: {
     position: 'absolute',
     height: 34,
-    backgroundColor: '#3B39E4',
+    backgroundColor: '#4C35E3',
     borderRadius: 20,
     top: 3,
     left: 3,
-    shadowColor: "#3B39E4",
+    shadowColor: "#4C35E3",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -141,20 +108,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
     width: 80,
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 2,
-  },
-  icon: {
-    marginRight: 4,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    paddingVertical: 8,
   },
   filterText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Inter_700Bold',
     color: '#64748B',
   },
