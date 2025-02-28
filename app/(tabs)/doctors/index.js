@@ -239,28 +239,30 @@ export default function Doctors() {
         }
         renderItem={({ item }) => (
           <TouchableOpacity 
-            style={[styles.doctorCard, { height: 240 }]} // Increased height
-            onPress={() => router.push(`/doctors/${item.id}`)}
+            style={[styles.doctorCard]}
+            onPress={() => router.push({
+              pathname: `/doctors/${item.id}`,
+              params: { doctorName: item.name }
+            })}
           >
-            <Image
-              source={{ uri: item.image_url }}
-              style={styles.doctorImage}
-              resizeMode="cover"
-            />
             <View style={styles.doctorInfo}>
-              <View style={styles.mainInfo}>
-                <Text style={styles.doctorName} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.specialtyText} numberOfLines={1}>
-                  {item.specialties?.name || 'Specialist'}
-                </Text>
+              <View style={styles.imageContainer}>
+                <Image
+                  source={{ uri: item.image_url }}
+                  style={styles.doctorImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.ratingOverlay}>
+                  <MaterialCommunityIcons name="star" size={12} color="#FFD700" />
+                  <Text style={styles.ratingText}>{item.rating?.toFixed(1) || '4.5'}</Text>
+                </View>
               </View>
-              
-              <View style={styles.statsContainer}>
-                <View style={styles.statsRow}>
-                  <View style={styles.ratingContainer}>
-                    <MaterialCommunityIcons name="star" size={12} color="#FFD700" />
-                    <Text style={styles.ratingText}>{item.rating?.toFixed(1) || '4.5'}</Text>
-                  </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.doctorName} numberOfLines={1}>{item.name}</Text>
+                <View style={styles.specialtyRow}>
+                  <Text style={styles.specialtyText} numberOfLines={1}>
+                    {item.specialties?.name || 'Specialist'}
+                  </Text>
                   <View style={styles.feeContainer}>
                     <MaterialCommunityIcons name="currency-inr" size={12} color="#2E7D32" />
                     <Text style={styles.feeText}>
@@ -268,16 +270,11 @@ export default function Doctors() {
                     </Text>
                   </View>
                 </View>
-
-                {item.experience && (
-                  <View style={styles.experienceContainer}>
-                    <MaterialCommunityIcons name="briefcase-outline" size={10} color="#6B4EFF" />
-                    <Text style={styles.experienceText}>{item.experience}y</Text>
-                  </View>
-                )}
-
                 <BookNowButton 
-                  onPress={() => router.push(`/doctors/${item.id}`)}
+                  onPress={() => router.push({
+                    pathname: `/doctors/${item.id}`,
+                    params: { doctorName: item.name }
+                  })}
                 />
               </View>
             </View>
@@ -372,28 +369,55 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     overflow: 'hidden',
-    height: 240, // Increased height
-  },
-  doctorImage: {
-    width: '90%',
-    height: '60%',
-    backgroundColor: '#F5F5F5',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    height: 280,
   },
   doctorInfo: {
-    padding: 16, // Increased from 10
     flex: 1,
-    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
   },
-  mainInfo: {
-    marginBottom: 8,
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 160,
+    zIndex: 2,
   },
-  doctorName: {
-    fontSize: 14,
+  doctorImage: {
+    width: '100%',
+    height: '110%',
+    backgroundColor: '#F5F5F5',
+    borderBottomRightRadius: 22,
+    borderBottomLeftRadius: 22,
+  },
+  infoContent: {
+    padding: 8,
+    paddingTop: 12,
+    backgroundColor: '#FFFFFF',
+    marginTop: -20,
+    borderRadius: 12,
+    zIndex: 1,
+  },
+  ratingOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  ratingText: {
+    color: '#fff',
+    fontSize: 12,
+    marginLeft: 2,
     fontFamily: 'Inter_600SemiBold',
-    color: '#1A1A1A',
-    marginBottom: 4,
+  },
+  specialtyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   specialtyText: {
     fontSize: 12,
@@ -401,43 +425,20 @@ const styles = StyleSheet.create({
     color: '#6B4EFF',
     backgroundColor: '#F0EEFF',
     paddingHorizontal: 8,
+    top: 30,
     paddingVertical: 4,
     borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  statsContainer: {
-    gap: 8,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF9E6',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  experienceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0EEFF',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
+    flex: 1,
+    marginRight: 4,
   },
   feeContainer: {
     flexDirection: 'row',
+    top: 30,
     alignItems: 'center',
     backgroundColor: '#E8F5E9',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
-    alignSelf: 'flex-start',
   },
   emptyContainer: {
     flex: 1,
@@ -466,8 +467,8 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   bookNowButton: {
-    marginTop: -15,
-    height: 36,
+    marginTop: 31,
+    height: 32,
     overflow: 'hidden',
     borderRadius: 8,
   },
@@ -501,5 +502,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     zIndex: 1,
+  },
+  doctorName: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#1A1A1A',
+    marginTop: 28, // Add this line to move the name down
+    marginBottom: -28,
+    textAlign: 'center', // Optional: center align the text
   },
 });

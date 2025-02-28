@@ -4,8 +4,11 @@ import { useState } from "react"
 import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, SafeAreaView, StatusBar } from "react-native"
 import { Ionicons, FontAwesome, MaterialIcons } from "@expo/vector-icons"
 import { useNavigation } from "@react-navigation/native"
+import { LinearGradient } from 'expo-linear-gradient'
+import { useLocalSearchParams } from 'expo-router'
 
 export default function DoctorProfile() {
+  const { doctorName } = useLocalSearchParams()
   const navigation = useNavigation()
   const [activeTab, setActiveTab] = useState("Feedbacks")
 
@@ -43,18 +46,23 @@ export default function DoctorProfile() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="light-content" backgroundColor="#4A80F0" />
 
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header with Gradient */}
+      <LinearGradient
+        colors={["#4C35E3", "#4B47E5", "#5465FF"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Doctor</Text>
+        <Text style={[styles.headerTitle, { color: '#fff' }]}>{doctorName || 'Doctor'}</Text>
         <TouchableOpacity style={styles.bookmarkButton}>
-          <Ionicons name="bookmark-outline" size={24} color="#333" />
+          <Ionicons name="bookmark-outline" size={24} color="#fff" />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Doctor Info Section */}
