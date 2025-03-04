@@ -1,187 +1,535 @@
 "use client"
 
-import { useState } from "react"
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, SafeAreaView, StatusBar } from "react-native"
-import { Ionicons, FontAwesome, MaterialIcons } from "@expo/vector-icons"
+import { useState, useEffect, useCallback } from "react"
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  Image, 
+  TouchableOpacity, 
+  ScrollView, 
+  SafeAreaView, 
+  StatusBar, 
+  ActivityIndicator,
+  Platform,
+  RefreshControl,
+  Alert
+} from "react-native"
+import { Ionicons } from "@expo/vector-icons"
 import { useNavigation } from "@react-navigation/native"
 import { LinearGradient } from 'expo-linear-gradient'
 import { useLocalSearchParams } from 'expo-router'
+import { supabase } from '../../../lib/supabase'
+import { format } from 'date-fns'
+import { RealtimeChannel } from '@supabase/supabase-js'
+import PatientDetailsForm from '../../../components/PatientDetailsForm'
+import { useRouter } from "expo-router"
+import AlertModal from '../../../components/AlertModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LoadingAnimation } from '../../../components/LoadingAnimation';
 
 export default function DoctorProfile() {
-  const { doctorName } = useLocalSearchParams()
+  const { id } = useLocalSearchParams()
   const navigation = useNavigation()
-  const [activeTab, setActiveTab] = useState("Feedbacks")
+  const router = useRouter()
+  const [doctor, setDoctor] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [currentToken, setCurrentToken] = useState(null)
+  const [myToken, setMyToken] = useState(null)
+  const [tokenSubscription, setTokenSubscription] = useState(null)
+  const [user, setUser] = useState(null)
+  const [showPatientForm, setShowPatientForm] = useState(false)
+  const [availableTokens, setAvailableTokens] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [maxTokens] = useState(50) // Set maximum tokens per day
+  const [isBooking, setIsBooking] = useState(false);
+  const [activeTab, setActiveTab] = useState("Schedule");
+  const [dataLoading, setDataLoading] = useState(true);
+  const [alert, setAlert] = useState({
+    visible: false,
+    type: 'success',
+    title: '',
+    message: '',
+    showCancel: false
+  });
 
-  // Sample doctor data
-  const doctor = {
-    name: "Dr. Sarah Johnson",
-    specialization: "Cardiologist",
-    rating: 4.8,
-    reviews: 128,
-    consultationDuration: "30m",
-    consultationFee: "990 PKR (Rs)",
-    visits: "2.3k",
-    patients: "1.1k",
-    experience: "2 years",
-    image: "https://randomuser.me/api/portraits/women/76.jpg",
+  const showAlert = (type, title, message, showCancel = false, onConfirm = null) => {
+    setAlert({
+      visible: true,
+      type,
+      title,
+      message,
+      showCancel,
+      onConfirm: onConfirm || (() => setAlert(prev => ({ ...prev, visible: false })))
+    });
+  };
+
+  // Add function to store user data
+  const storeUserData = async (userData) => {
+    try {
+      if (userData) {
+        await AsyncStorage.setItem('user', JSON.stringify(userData));
+      } else {
+        await AsyncStorage.removeItem('user');
+      }
+    } catch (error) {
+      console.error('Error storing user data:', error);
+    }
+  };
+
+  // Add auth session state
+  const [session, setSession] = useState(null);
+
+  // Update and combine auth initialization
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        // First check AsyncStorage
+        const storedUser = await AsyncStorage.getItem('user');
+        if (storedUser && mounted) {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        }
+
+        // Then verify with Supabase
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
+        if (mounted) {
+          if (session) {
+            setSession(session);
+            setUser(session.user);
+            await AsyncStorage.setItem('user', JSON.stringify(session.user));
+            await AsyncStorage.setItem('session', JSON.stringify(session));
+          } else {
+            // Clear stored data if no active session
+            await AsyncStorage.removeItem('user');
+            await AsyncStorage.removeItem('session');
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        // Clear stored data on error
+        await AsyncStorage.removeItem('user');
+        await AsyncStorage.removeItem('session');
+      }
+    };
+
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        console.log('Auth event:', event);
+        if (mounted) {
+          if (newSession) {
+            setSession(newSession);
+            setUser(newSession.user);
+            await AsyncStorage.setItem('user', JSON.stringify(newSession.user));
+            await AsyncStorage.setItem('session', JSON.stringify(newSession));
+          } else {
+            setSession(null);
+            setUser(null);
+            await AsyncStorage.removeItem('user');
+            await AsyncStorage.removeItem('session');
+          }
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  // Combine all data fetching into one optimized function
+  const fetchAllData = async () => {
+    setDataLoading(true);
+    try {
+      // Fetch doctor and token data in parallel
+      const [doctorResponse, tokensResponse, currentTokenResponse, myTokenResponse] = await Promise.all([
+        supabase
+          .from('doctors')
+          .select(`
+            id,
+            name,
+            image_url,
+            qualification,
+            experience_years,
+            consultation_fee,
+            available,
+            available_tokens,
+            max_tokens,
+            specialties:specialty_id (name),
+            hospitals:hospital_id (name)
+          `)
+          .eq('id', id)
+          .single(),
+        
+        supabase
+          .from('tokens')
+          .select('id', { count: 'exact' })
+          .eq('doctor_id', id)
+          .eq('booking_date', format(new Date(), 'yyyy-MM-dd')),
+        
+        supabase
+          .from('tokens')
+          .select('*')
+          .eq('doctor_id', id)
+          .eq('booking_date', format(new Date(), 'yyyy-MM-dd'))
+          .eq('status', 'in-progress')
+          .single(),
+        
+        user ? supabase
+          .from('tokens')
+          .select('*')
+          .eq('doctor_id', id)
+          .eq('patient_id', user.id)
+          .eq('booking_date', format(new Date(), 'yyyy-MM-dd'))
+          .single() : null
+      ]);
+
+      // Handle doctor data
+      if (doctorResponse.error) throw doctorResponse.error;
+      setDoctor(doctorResponse.data);
+
+      // Handle tokens count
+      if (!tokensResponse.error) {
+        const availableCount = doctorResponse.data.max_tokens - (tokensResponse.count || 0);
+        setAvailableTokens(availableCount > 0 ? availableCount : 0);
+      }
+
+      // Handle current token
+      if (!currentTokenResponse.error) {
+        setCurrentToken(currentTokenResponse.data);
+      }
+
+      // Handle my token
+      if (myTokenResponse && !myTokenResponse.error) {
+        setMyToken(myTokenResponse.data);
+      }
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      showAlert('error', 'Error', 'Unable to load doctor details. Please try again.');
+    } finally {
+      setDataLoading(false);
+      setLoading(false);
+    }
+  };
+
+  // Update useEffect to use combined fetch
+  useEffect(() => {
+    fetchAllData();
+  }, [id, user]);
+
+  // Update refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAllData();
+    setRefreshing(false);
+  }, [id, user]);
+
+  const checkTokenAvailability = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('doctors')
+        .select('available_tokens, max_tokens, available')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      return {
+        hasTokens: data.available_tokens > 0 && data.available,
+        availableTokens: data.available_tokens,
+        maxTokens: data.max_tokens
+      };
+    } catch (error) {
+      console.error('Error checking availability:', error);
+      return { hasTokens: false, availableTokens: 0 };
+    }
+  };
+
+  const handleBooking = async (patientDetails) => {
+    setIsBooking(true);
+    try {
+      const { hasTokens } = await checkTokenAvailability();
+      
+      if (!hasTokens) {
+        showAlert(
+          "warning",
+          "No Tokens Available",
+          "Sorry, this doctor is not available for booking at the moment."
+        );
+        return;
+      }
+
+      // Save patient details first with explicit id from auth
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: patientData, error: patientError } = await supabase
+        .from('patients')
+        .upsert([
+          {
+            id: user.id,           // Explicitly set the id to match auth.uid()
+            name: patientDetails.name,
+            age: patientDetails.age,
+            gender: patientDetails.gender,
+            phone: patientDetails.phone,
+            created_at: new Date().toISOString(), // Add created_at
+            updated_at: new Date().toISOString()  // Add updated_at
+          }
+        ], { 
+          onConflict: 'id',
+          returning: true         // Get the result back
+        });
+
+      if (patientError) {
+        console.error('Patient save error:', patientError);
+        throw patientError;
+      }
+
+      // Rest of your code...
+      // ...existing token calculation and navigation code...
+
+    } catch (error) {
+      console.error('Booking error:', error);
+      showAlert(
+        "error",
+        "Booking Failed", 
+        error.message || "Unable to proceed with booking. Please try again."
+      );
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+  // Add helper function to calculate token time
+  const getTokenTime = (tokenNumber) => {
+    const startTime = new Date();
+    startTime.setHours(9, 0, 0); // Assuming clinic starts at 9 AM
+    const minutesPerToken = 15; // Average time per patient
+    const additionalMinutes = (tokenNumber - 1) * minutesPerToken;
+    startTime.setMinutes(startTime.getMinutes() + additionalMinutes);
+    return format(startTime, 'hh:mm a');
+  };
+
+  // Update booking function with proper auth handling
+  const bookToken = async (patientDetails) => {
+    try {
+      setIsBooking(true);
+
+      // Check availability
+      const { hasTokens } = await checkTokenAvailability();
+      if (!hasTokens) {
+        showAlert('warning', 'No Tokens', 'No tokens available for today');
+        return;
+      }
+
+      // Add all required doctor details to navigation params
+      router.push({
+        pathname: '/checkout/payment',
+        params: {
+          amount: doctor.consultation_fee,
+          doctorId: id,
+          doctorName: doctor.name,
+          doctorImage: doctor.image_url,
+          specialty: doctor.specialties?.name,
+          hospitalName: doctor.hospitals?.name,
+          patientDetails: JSON.stringify(patientDetails)
+        }
+      });
+
+    } catch (error) {
+      showAlert(
+        'error',
+        'Booking Failed',
+        'Unable to complete booking. Please try again.'
+      );
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+  // Update loading state render
+  if (loading || !doctor) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <LoadingAnimation message="Loading doctor details..." />
+      </View>
+    );
   }
 
-  const renderStars = (rating) => {
-    const stars = []
-    const fullStars = Math.floor(rating)
-    const halfStar = rating % 1 >= 0.5
-
-    for (let i = 0; i < 5; i++) {
-      if (i < fullStars) {
-        stars.push(<FontAwesome key={i} name="star" size={16} color="#FFD700" />)
-      } else if (i === fullStars && halfStar) {
-        stars.push(<FontAwesome key={i} name="star-half-o" size={16} color="#FFD700" />)
-      } else {
-        stars.push(<FontAwesome key={i} name="star-o" size={16} color="#FFD700" />)
-      }
+  // Update TokenStatus component to show loading state
+  const TokenStatus = () => {
+    if (dataLoading) {
+      return (
+        <View style={styles.loadingTokenContainer}>
+          <ActivityIndicator size="small" color="#4C35E3" />
+          <Text style={styles.loadingText}>Loading availability...</Text>
+        </View>
+      );
     }
 
-    return stars
-  }
+    if (!doctor.available || availableTokens === 0) {
+      return (
+        <View style={styles.unavailableContainer}>
+          <Text style={styles.unavailableText}>
+            This doctor is not available today
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.tokenInfoContainer}>
+        <Text style={styles.availabilityText}>
+          Available Tokens: {availableTokens}
+        </Text>
+        {currentToken && (
+          <View style={styles.currentTokenBox}>
+            <Text style={styles.currentTokenLabel}>Current Token</Text>
+            <Text style={styles.currentTokenNumber}>{currentToken.token_number}</Text>
+          </View>
+        )}
+
+        {myToken && (
+          <View style={styles.myTokenBox}>
+            <Text style={styles.myTokenLabel}>Your Token</Text>
+            <Text style={styles.myTokenNumber}>{myToken.token_number}</Text>
+            <Text style={styles.tokenStatus}>{myToken.status}</Text>
+            {myToken.status === 'waiting' && (
+              <Text style={styles.waitingText}>
+                {`${myToken.token_number - (currentToken?.token_number || 0)} patients ahead of you`}
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#4A80F0" />
-
-      {/* Header with Gradient */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      
       <LinearGradient
         colors={["#4C35E3", "#4B47E5", "#5465FF"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={[styles.gradientHeader, { paddingTop: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight + 10 }]}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.push("/doctors")}
+        >
+          <Ionicons name="chevron-back" size={28} color="#fff" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: '#fff' }]}>{doctorName || 'Doctor'}</Text>
-        <TouchableOpacity style={styles.bookmarkButton}>
-          <Ionicons name="bookmark-outline" size={24} color="#fff" />
-        </TouchableOpacity>
+
+        <View style={styles.profileSection}>
+          <Image 
+            source={{ uri: doctor.image_url || 'https://via.placeholder.com/100' }} 
+            style={styles.doctorImage} 
+          />
+          <View style={styles.doctorInfo}>
+            <Text style={styles.doctorName}>{doctor.name}</Text>
+            <Text style={styles.qualification}>{doctor.qualification}</Text>
+            <Text style={styles.specialization}>{doctor.specialties?.name}</Text>
+            <Text style={styles.hospitalName}>{doctor.hospitals?.name}</Text>
+          </View>
+        </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Doctor Info Section */}
-        <View style={styles.doctorInfoContainer}>
-          <Image source={{ uri: doctor.image }} style={styles.doctorImage} />
-          <Text style={styles.doctorName}>{doctor.name}</Text>
-          <Text style={styles.specialization}>{doctor.specialization}</Text>
-
-          <View style={styles.ratingContainer}>
-            {renderStars(doctor.rating)}
-            <Text style={styles.reviewCount}> ({doctor.reviews} reviews)</Text>
+      <View style={styles.contentContainer}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#4C35E3"
+              colors={["#4C35E3"]}
+            />
+          }
+        >
+          <View style={styles.tabsContainer}>
+            {["Schedule", "About"].map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tab, activeTab === tab && styles.activeTab]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
-          <View style={styles.consultationInfo}>
-            <View style={styles.consultationItem}>
-              <Ionicons name="time-outline" size={18} color="#666" />
-              <Text style={styles.consultationText}>{doctor.consultationDuration}</Text>
-            </View>
-            <View style={styles.consultationDivider} />
-            <View style={styles.consultationItem}>
-              <Ionicons name="cash-outline" size={18} color="#666" />
-              <Text style={styles.consultationText}>{doctor.consultationFee}</Text>
-            </View>
+          <View style={styles.tabContent}>
+            {activeTab === "Schedule" && <TokenStatus />}
+            {activeTab === "About" && (
+              <View style={styles.aboutContainer}>
+                <Text style={styles.aboutText}>
+                  {`Experience: ${doctor.experience_years} years`}
+                </Text>
+              </View>
+            )}
           </View>
-        </View>
+        </ScrollView>
+      </View>
 
-        {/* Stats Section */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="eye-outline" size={24} color="#4A80F0" />
-            <Text style={styles.statValue}>{doctor.visits}</Text>
-            <Text style={styles.statLabel}>Visits</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Ionicons name="people-outline" size={24} color="#4A80F0" />
-            <Text style={styles.statValue}>{doctor.patients}</Text>
-            <Text style={styles.statLabel}>Patients</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <MaterialIcons name="work-outline" size={24} color="#4A80F0" />
-            <Text style={styles.statValue}>{doctor.experience}</Text>
-            <Text style={styles.statLabel}>Experience</Text>
-          </View>
-        </View>
-
-        {/* Tabs Section */}
-        <View style={styles.tabsContainer}>
-          {["Feedbacks", "Docs", "About"].map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.activeTab]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Tab Content (placeholder) */}
-        <View style={styles.tabContent}>
-          {activeTab === "Feedbacks" && (
-            <View style={styles.feedbackContainer}>
-              <Text style={styles.feedbackTitle}>Patient Feedbacks</Text>
-              {/* Sample feedback items */}
-              {[1, 2, 3].map((item) => (
-                <View key={item} style={styles.feedbackItem}>
-                  <View style={styles.feedbackHeader}>
-                    <Image
-                      source={{
-                        uri: `https://randomuser.me/api/portraits/${item % 2 === 0 ? "women" : "men"}/${item * 10}.jpg`,
-                      }}
-                      style={styles.feedbackAvatar}
-                    />
-                    <View>
-                      <Text style={styles.feedbackName}>Patient {item}</Text>
-                      <View style={{ flexDirection: "row" }}>{renderStars(4 + item * 0.2).slice(0, 5)}</View>
-                    </View>
-                    <Text style={styles.feedbackDate}>2 days ago</Text>
-                  </View>
-                  <Text style={styles.feedbackText}>
-                    Great doctor! Very professional and knowledgeable. I highly recommend Dr. Johnson for anyone looking
-                    for a cardiologist.
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {activeTab === "Docs" && (
-            <View style={styles.docsContainer}>
-              <Text style={styles.sectionTitle}>Documents</Text>
-              <Text style={styles.placeholderText}>Doctor's documents and certificates will appear here.</Text>
-            </View>
-          )}
-
-          {activeTab === "About" && (
-            <View style={styles.aboutContainer}>
-              <Text style={styles.sectionTitle}>About Doctor</Text>
-              <Text style={styles.aboutText}>
-                Dr. Sarah Johnson is a board-certified cardiologist with over 2 years of experience in treating various
-                heart conditions. She completed her medical degree from Harvard Medical School and residency at Johns
-                Hopkins Hospital.
-                {"\n\n"}
-                Dr. Johnson specializes in preventive cardiology, heart failure management, and cardiac rehabilitation.
-                She is committed to providing personalized care to all her patients.
-              </Text>
-            </View>
+      <View style={styles.footer}>
+        <View style={styles.feeContainer}>
+          <Text style={styles.feeAmount}>₹{doctor.consultation_fee}</Text>
+          {doctor.available_tokens > 0 && (
+            <Text style={styles.tokensLeft}>
+              {doctor.available_tokens} tokens left
+            </Text>
           )}
         </View>
-      </ScrollView>
-
-      {/* Booking Button */}
-      <View style={styles.bookingButtonContainer}>
-        <TouchableOpacity style={styles.bookingButton}>
-          <Text style={styles.bookingButtonText}>Book This Doctor</Text>
+        <TouchableOpacity 
+          style={[
+            styles.bookButton,
+            (!doctor.available || doctor.available_tokens === 0) && styles.disabledButton
+          ]}
+          disabled={!doctor.available || doctor.available_tokens === 0 || isBooking}
+          onPress={() => {
+            setShowPatientForm(true);
+            setIsBooking(false); // Reset booking state when opening form
+          }}
+        >
+          <Text style={styles.bookButtonText}>
+            {isBooking ? 'Booking...' : 
+             !doctor.available ? 'Not Available' :
+             doctor.available_tokens === 0 ? 'No Tokens Left' : 
+             'Book Token'}
+          </Text>
         </TouchableOpacity>
       </View>
+
+      <PatientDetailsForm
+        visible={showPatientForm}
+        onClose={() => {
+          setShowPatientForm(false);
+          setIsBooking(false); // Reset booking state when closing form
+        }}
+        onSubmit={handleBooking} // Changed from bookToken to handleBooking
+      />
+
+      <AlertModal
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        showCancel={alert.showCancel}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   )
 }
@@ -189,233 +537,238 @@ export default function DoctorProfile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+  },
+  gradientHeader: {
+    paddingTop: Platform.OS === "ios" ? 60 : StatusBar.currentHeight + 10,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
+    left: 16,
     padding: 8,
+    zIndex: 1,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  bookmarkButton: {
-    padding: 8,
-  },
-  doctorInfoContainer: {
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#fff",
+  profileSection: {
+    alignItems: 'center',
+    paddingVertical: 20,
   },
   doctorImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 12,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: '#fff',
+    marginBottom: 16,
+  },
+  doctorInfo: {
+    alignItems: 'center',
+    gap: 4,
   },
   doctorName: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
+    fontSize: 24,
+    color: '#fff',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  qualification: {
+    fontSize: 14,
+    color: '#fff',
+    fontFamily: 'Inter_500Medium',
   },
   specialization: {
     fontSize: 16,
-    color: "#666",
-    marginBottom: 8,
+    color: '#fff',
+    fontFamily: 'Inter_500Medium',
   },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  reviewCount: {
+  hospitalName: {
     fontSize: 14,
-    color: "#666",
-    marginLeft: 4,
+    color: '#fff',
+    fontFamily: 'Inter_400Regular',
   },
-  consultationInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f0f4f8",
-    borderRadius: 12,
-    padding: 12,
-    width: "90%",
-  },
-  consultationItem: {
-    flexDirection: "row",
-    alignItems: "center",
+  contentContainer: {
     flex: 1,
-    justifyContent: "center",
-  },
-  consultationDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: "#ddd",
-  },
-  consultationText: {
-    marginLeft: 6,
-    fontSize: 14,
-    color: "#555",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginVertical: 16,
-  },
-  statCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    width: "30%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 4,
+    marginTop: -20,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
   tabsContainer: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 16,
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
-    alignItems: "center",
+    alignItems: 'center',
     borderRadius: 8,
+    backgroundColor: '#f0f0f0',
   },
   activeTab: {
-    backgroundColor: "#4A80F0",
+    backgroundColor: '#4C35E3',
   },
   tabText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#666",
+    color: '#666',
+    fontFamily: 'Inter_500Medium',
   },
   activeTabText: {
-    color: "#fff",
+    color: '#fff',
   },
-  tabContent: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    marginHorizontal: 16,
+  footer: {
+    flexDirection: 'row',
     padding: 16,
-    marginBottom: 100, // Space for the booking button
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  feedbackContainer: {
-    gap: 16,
+  feeAmount: {
+    fontSize: 20,
+    color: '#4C35E3',
+    fontFamily: 'Inter_600SemiBold',
   },
-  feedbackTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#333",
+  bookButton: {
+    backgroundColor: '#4C35E3',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
-  feedbackItem: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  bookButtonText: {
+    color: '#fff',
+    fontFamily: 'Inter_600SemiBold',
   },
-  feedbackHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
+  disabledButton: {
+    backgroundColor: '#ccc',
   },
-  feedbackAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  feedbackName: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#333",
-    marginBottom: 2,
-  },
-  feedbackDate: {
-    fontSize: 12,
-    color: "#999",
-    marginLeft: "auto",
-  },
-  feedbackText: {
-    fontSize: 14,
-    color: "#555",
-    lineHeight: 20,
-  },
-  docsContainer: {
-    alignItems: "center",
+  noSlotsContainer: {
     padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginVertical: 10,
+  },
+  noSlotsText: {
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Inter_500Medium',
+    textAlign: 'center',
   },
   aboutContainer: {
     padding: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#333",
-  },
-  placeholderText: {
-    fontSize: 14,
-    color: "#999",
-    textAlign: "center",
-    marginTop: 20,
   },
   aboutText: {
     fontSize: 14,
     color: "#555",
     lineHeight: 22,
   },
-  bookingButtonContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
+  tokenContainer: {
+    padding: 16,
+    gap: 16,
   },
-  bookingButton: {
-    backgroundColor: "#4A80F0",
+  currentTokenBox: {
+    backgroundColor: '#4C35E3',
+    padding: 16,
     borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
+    alignItems: 'center',
   },
-  bookingButtonText: {
-    color: "#fff",
+  currentTokenLabel: {
+    color: '#fff',
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: 'Inter_600SemiBold',
   },
+  currentTokenNumber: {
+    color: '#fff',
+    fontSize: 32,
+    fontFamily: 'Inter_700Bold',
+  },
+  myTokenBox: {
+    backgroundColor: '#f0f4f8',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4C35E3',
+  },
+  myTokenLabel: {
+    color: '#4C35E3',
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  myTokenNumber: {
+    color: '#4C35E3',
+    fontSize: 32,
+    fontFamily: 'Inter_700Bold',
+  },
+  tokenStatus: {
+    color: '#666',
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    textTransform: 'capitalize',
+    marginTop: 8,
+  },
+  waitingText: {
+    color: '#666',
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    marginTop: 4,
+  },
+  availabilityBox: {
+    backgroundColor: '#F0F9FF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4C35E3',
+    marginBottom: 16,
+  },
+  availabilityLabel: {
+    fontSize: 16,
+    color: '#4C35E3',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  availabilityCount: {
+    fontSize: 32,
+    color: '#4C35E3',
+    fontFamily: 'Inter_700Bold',
+    marginVertical: 8,
+  },
+  noTokensText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+  },
+  tokensLeft: {
+    fontSize: 14,
+    color: '#4B5563',
+    fontFamily: 'Inter_400Regular',
+    marginTop: 4,
+  },
+  unavailableContainer: {
+    backgroundColor: '#FEE2E2',
+    padding: 16,
+    borderRadius: 12,
+    marginVertical: 8,
+  },
+  
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Inter_500Medium',
+  },
+  loadingTokenContainer: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    marginVertical: 8,
+    flexDirection: 'row',
+    gap: 8
+  }
 })
 

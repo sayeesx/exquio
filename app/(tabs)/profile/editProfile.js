@@ -5,250 +5,348 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
+  Image,
   Platform,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { Picker } from '@react-native-picker/picker';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { TextInput } from 'react-native-paper';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../../lib/supabase';
+import AlertModal from '../../../components/AlertModal';
 
 export default function EditProfile() {
   const router = useRouter();
-  const [userData, setUserData] = useState({
-    name: '',
+  const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [profile, setProfile] = useState({
+    full_name: '',
     email: '',
     phone: '',
-    age: '', // This will be converted to number when saving
-    address: '',
-    bloodType: '',
+    avatar_url: '',
     gender: '',
+    blood_type: '',
+    address: '',
   });
 
-  const [errors, setErrors] = useState({});
-
   useEffect(() => {
-    loadUserData();
+    fetchProfile();
   }, []);
 
-  const loadUserData = async () => {
+  const fetchProfile = async () => {
     try {
-      const userDataString = await AsyncStorage.getItem('userData');
-      if (userDataString) {
-        const parsedData = JSON.parse(userDataString);
-        // Ensure age is always a string in the form
-        setUserData({
-          ...parsedData,
-          age: parsedData.age ? String(parsedData.age) : '',
-        });
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        if (data) setProfile(data);
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
-      Alert.alert('Error', 'Failed to load user data');
+      setErrorMessage('Error fetching profile');
+      setShowErrorModal(true);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!userData.name) newErrors.name = 'Name is required';
-    if (!userData.email) newErrors.email = 'Email is required';
-    if (!userData.phone) newErrors.phone = 'Phone is required';
-    if (!userData.age) newErrors.age = 'Age is required';
-    if (!userData.address) newErrors.address = 'Address is required';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSave = async () => {
-    if (!validateForm()) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
+  const handleUpdateProfile = async () => {
     try {
-      await AsyncStorage.setItem('userData', JSON.stringify({
-        ...userData,
-        age: userData.age ? Number(userData.age) : null, // Ensure age is stored as a number
-      }));
-      Alert.alert('Success', 'Profile updated successfully', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('No user logged in');
+
+      const updates = {
+        id: user.id,
+        ...profile,
+        updated_at: new Date(),
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .upsert(updates);
+
+      if (error) throw error;
+      
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        router.back();
+      }, 1500);
     } catch (error) {
-      console.error('Error saving user data:', error);
-      Alert.alert('Error', 'Failed to save changes');
+      setErrorMessage('Error updating profile');
+      setShowErrorModal(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setProfile(prev => ({ ...prev, avatar_url: result.assets[0].uri }));
+      }
+    } catch (error) {
+      setErrorMessage('Error picking image');
+      setShowErrorModal(true);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Icon name="arrow-left" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity 
-          style={styles.saveButton}
-          onPress={handleSave}
-        >
-          <Text style={styles.saveButtonText}>Save</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={["#4C35E3", "#5465FF", "#6983FF"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientHeader}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <TouchableOpacity 
+            style={styles.saveButton}
+            onPress={handleUpdateProfile}
+            disabled={loading}
+          >
+            <Ionicons name="checkmark" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.avatarContainer}>
+          <Image
+            source={
+              profile.avatar_url
+                ? { uri: profile.avatar_url }
+                : require('../../../assets/profile.png')
+            }
+            style={styles.avatar}
+          />
+          <TouchableOpacity onPress={pickImage} style={styles.changePhotoButton}>
+            <Ionicons name="camera" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
       <ScrollView style={styles.content}>
-        <TextInput
-          label="Full Name"
-          value={userData.name}
-          onChangeText={(text) => setUserData({ ...userData, name: text })}
-          mode="outlined"
-          error={!!errors.name}
-          style={styles.input}
-        />
+        <View style={styles.inputContainer}>
+          <TextInput
+            label="Full Name"
+            value={profile.full_name}
+            onChangeText={(text) => setProfile(prev => ({ ...prev, full_name: text }))}
+            mode="flat"
+            style={styles.input}
+            theme={{
+              colors: {
+                primary: '#4C35E3',
+                background: '#fff',
+                text: '#000',
+                placeholder: '#999',
+              }
+            }}
+            textColor="#000"
+          />
 
-        <TextInput
-          label="Email"
-          value={userData.email}
-          onChangeText={(text) => setUserData({ ...userData, email: text })}
-          mode="outlined"
-          error={!!errors.email}
-          keyboardType="email-address"
-          style={styles.input}
-        />
+          <TextInput
+            label="Email"
+            value={profile.email}
+            onChangeText={(text) => setProfile(prev => ({ ...prev, email: text }))}
+            mode="flat"
+            keyboardType="email-address"
+            style={styles.input}
+            theme={{
+              colors: {
+                primary: '#4C35E3',
+                background: '#fff',
+                text: '#000',
+                placeholder: '#999',
+              }
+            }}
+            textColor="#000"
+          />
 
-        <TextInput
-          label="Phone"
-          value={userData.phone}
-          onChangeText={(text) => setUserData({ ...userData, phone: text })}
-          mode="outlined"
-          error={!!errors.phone}
-          keyboardType="phone-pad"
-          style={styles.input}
-        />
+          <TextInput
+            label="Phone Number"
+            value={profile.phone}
+            onChangeText={(text) => setProfile(prev => ({ ...prev, phone: text }))}
+            mode="flat"
+            keyboardType="phone-pad"
+            style={styles.input}
+            theme={{
+              colors: {
+                primary: '#4C35E3',
+                background: '#fff',
+                text: '#000',
+                placeholder: '#999',
+              }
+            }}
+            textColor="#000"
+          />
 
-        <TextInput
-          label="Age"
-          value={userData.age}
-          onChangeText={(text) => setUserData({ ...userData, age: text })}
-          mode="outlined"
-          error={!!errors.age}
-          keyboardType="numeric"
-          style={styles.input}
-        />
+          <TextInput
+            label="Gender"
+            value={profile.gender}
+            onChangeText={(text) => setProfile(prev => ({ ...prev, gender: text }))}
+            mode="flat"
+            style={styles.input}
+            theme={{
+              colors: {
+                primary: '#4C35E3',
+                background: '#fff',
+                text: '#000',
+                placeholder: '#999',
+              }
+            }}
+            textColor="#000"
+          />
 
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Blood Type</Text>
-          <Picker
-            selectedValue={userData.bloodType}
-            onValueChange={(value) => setUserData({ ...userData, bloodType: value })}
-            style={[styles.picker, { backgroundColor: '#F5F5F5' }]}
-            itemStyle={{ fontSize: 16 }}
-          >
-            <Picker.Item label="Select Blood Type" value="" />
-            <Picker.Item label="A+" value="A+" />
-            <Picker.Item label="A-" value="A-" />
-            <Picker.Item label="B+" value="B+" />
-            <Picker.Item label="B-" value="B-" />
-            <Picker.Item label="AB+" value="AB+" />
-            <Picker.Item label="AB-" value="AB-" />
-            <Picker.Item label="O+" value="O+" />
-            <Picker.Item label="O-" value="O-" />
-          </Picker>
+          <TextInput
+            label="Blood Type"
+            value={profile.blood_type}
+            onChangeText={(text) => setProfile(prev => ({ ...prev, blood_type: text }))}
+            mode="flat"
+            style={styles.input}
+            theme={{
+              colors: {
+                primary: '#4C35E3',
+                background: '#fff',
+                text: '#000',
+                placeholder: '#999',
+              }
+            }}
+            textColor="#000"
+          />
+
+          <TextInput
+            label="Address"
+            value={profile.address}
+            onChangeText={(text) => setProfile(prev => ({ ...prev, address: text }))}
+            mode="flat"
+            multiline
+            numberOfLines={3}
+            style={styles.input}
+            theme={{
+              colors: {
+                primary: '#4C35E3',
+                background: '#fff',
+                text: '#000',
+                placeholder: '#999',
+              }
+            }}
+            textColor="#000"
+          />
         </View>
-
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Gender</Text>
-          <Picker
-            selectedValue={userData.gender}
-            onValueChange={(value) => setUserData({ ...userData, gender: value })}
-            style={[styles.picker, { backgroundColor: '#F5F5F5' }]}
-            itemStyle={{ fontSize: 16 }}
-          >
-            <Picker.Item label="Select Gender" value="" />
-            <Picker.Item label="Male" value="Male" />
-            <Picker.Item label="Female" value="Female" />
-            <Picker.Item label="Other" value="Other" />
-          </Picker>
-        </View>
-
-        <TextInput
-          label="Address"
-          value={userData.address}
-          onChangeText={(text) => setUserData({ ...userData, address: text })}
-          mode="outlined"
-          error={!!errors.address}
-          multiline
-          numberOfLines={3}
-          style={styles.input}
-        />
       </ScrollView>
-    </SafeAreaView>
+
+      <AlertModal
+        visible={showSuccessModal}
+        type="success"
+        title="Success"
+        message="Profile updated successfully"
+        onClose={() => setShowSuccessModal(false)}
+      />
+
+      <AlertModal
+        visible={showErrorModal}
+        type="error"
+        title="Error"
+        message={errorMessage}
+        onClose={() => setShowErrorModal(false)}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 2,
-    backgroundColor: '#FFFFFF',
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  gradientHeader: {
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight + 10,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    ...Platform.select({
-      ios: {
-        paddingTop: 8
-      },
-      android: {
-        paddingTop: StatusBar.currentHeight
-      }
-    })
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   backButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   saveButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#4C35E3',
   },
-  saveButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '600',
+  avatarContainer: {
+    alignItems: 'center',
+    position: 'relative',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#4C35E3',
+  },
+  changePhotoButton: {
+    position: 'absolute',
+    right: '35%',
+    bottom: -10,
+    backgroundColor: '#4C35E3',
+    padding: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#1a1a1a',
   },
   content: {
     flex: 1,
-    padding: 16,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -20,
+  },
+  inputContainer: {
+    padding: 20,
+    gap: 16,
   },
   input: {
+    backgroundColor: '#fff',
     marginBottom: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  pickerContainer: {
-    marginBottom: 16,
-  },
-  pickerLabel: {
-    fontSize: 12,
-    color: '#666666',
-    marginBottom: 4,
-  },
-  picker: {
-    backgroundColor: '#F5F5F5',
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    elevation: 0,
+    shadowOpacity: 0,
   },
 });

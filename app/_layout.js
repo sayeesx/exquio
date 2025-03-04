@@ -38,10 +38,46 @@ export default function RootLayout() {
     >
       <Stack.Screen
         name="(tabs)"
-        options={({ route }) => ({
+        options={{
           headerShown: false,
           animation: 'none',
-        })}
+        }}
+      />
+      <Stack.Screen
+        name="checkout/checkout"
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
+        name="checkout/payment"
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
+        name="checkout/gateway/success"
+        options={{
+          headerShown: false,
+          animation: 'fade',
+          presentation: 'modal'
+        }}
+      />
+      <Stack.Screen
+        name="checkout/gateway/failed"
+        options={{
+          headerShown: false,
+          animation: 'fade',
+          presentation: 'modal'
+        }}
+      />
+      <Stack.Screen
+        name="checkout/gateway/pending"
+        options={{
+          headerShown: false,
+          animation: 'fade',
+          presentation: 'modal'
+        }}
       />
     </Stack>
   );
