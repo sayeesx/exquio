@@ -22,6 +22,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Checkbox from 'expo-checkbox';
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import { useAuth } from './context/AuthContext';  // Add this line
 
 // Initialize Supabase client
 const supabaseUrl = Constants?.expoConfig?.extra?.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -132,6 +133,7 @@ const FloatingLabelInput = forwardRef(({ label, value, onChangeText, secureTextE
 });
 
 export default function Login() {
+  const { login } = useAuth();  // Get login function from context
   const router = useRouter();
   const { form } = useLocalSearchParams();
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -249,35 +251,17 @@ export default function Login() {
     try {
       setLoading(true);
       
-      // Use Supabase's sign-in method with correct parameter handling
-      const signInCredentials = isPhoneLogin 
+      const credentials = isPhoneLogin 
         ? { phone: formData.phone, password: formData.password }
         : { email: formData.email, password: formData.password };
 
-      const { data, error } = await supabase.auth.signInWithPassword(signInCredentials);
-
-      if (error) {
-        console.error('Supabase Sign In Error:', error);
-        setLoading(false);
-        showToast('error', error.message || 'Invalid login credentials');
-        return;
-      }
-
-      // Log user details for debugging
-      console.log('Signed In User:', data.user);
-
+      await login(credentials);
       showToast('success', 'Sign in successful');
       
-      // Wait for toast to be visible before navigation
-      setTimeout(() => {
-        setLoading(false);
-        router.replace('/(tabs)/home');
-      }, 500);
-      
     } catch (error) {
-      console.error('Sign In Catch Error:', error);
+      console.error('Sign In Error:', error);
+      showToast('error', error.message || 'Invalid login credentials');
       setLoading(false);
-      showToast('error', 'Sign in failed: ' + error.message);
     }
   };
 
@@ -310,27 +294,42 @@ export default function Login() {
     try {
       setLoading(true);
       
-      // Use Supabase to sign up with correct parameter handling
+      // Sign up with Supabase auth
       const signUpCredentials = isPhoneLogin 
         ? { phone: formData.phone, password: formData.password }
         : { email: formData.email, password: formData.password };
 
-      const { data, error } = await supabase.auth.signUp(signUpCredentials);
+      const { data: authData, error: authError } = await supabase.auth.signUp(signUpCredentials);
 
-      if (error) {
-        console.error('Supabase Sign Up Error:', error);
-        showToast('error', error.message || 'Sign up failed');
+      if (authError) {
+        console.error('Supabase Sign Up Error:', authError);
+        showToast('error', authError.message || 'Sign up failed');
         return;
       }
 
-      // Log sign-up details for debugging
-      console.log('Signed Up User:', data.user);
+      // Create profile record
+      const profileData = {
+        id: authData.user.id,
+        full_name: formData.name,
+        phone_number: isPhoneLogin ? formData.phone : null,
+        email: isPhoneLogin ? null : formData.email,
+        updated_at: new Date()
+      };
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([profileData]);
+
+      if (profileError) {
+        console.error('Profile Creation Error:', profileError);
+        showToast('error', 'Failed to create profile');
+        return;
+      }
 
       // Reset form and switch to sign-in
       setLoading(false);
       setIsSignUp(false);
       setIsSignIn(true);
-      
       showToast('success', 'Sign up successful! Please sign in.');
       
     } catch (error) {

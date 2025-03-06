@@ -6,18 +6,47 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import AlertModal from '../../../components/AlertModal';
+import { useAuth } from '../../auth/context/AuthContext';
+
+// Add unprotectedRoutes array at the top
+const unprotectedRoutes = ['/auth/login', '/intro'];
 
 export default function Profile() {
   const router = useRouter();
+  const { user: authUser, loading } = useAuth();
   const [user, setUser] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Update the checkAuth function
+  const checkAuth = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user && !unprotectedRoutes.includes(router.pathname)) {
+        router.replace('/auth/login');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Auth check error:', error);
+      router.replace('/auth/login');
+      return false;
+    }
+  };
+
+  // Modify the useEffect
   useEffect(() => {
-    fetchUserProfile();
-  }, []);
+    if (!loading && !authUser) {
+      router.replace('/auth/login');
+      return;
+    }
+    
+    if (authUser) {
+      fetchUserProfile();
+    }
+  }, [authUser, loading]);
 
   const fetchUserProfile = async () => {
     try {
@@ -30,7 +59,12 @@ export default function Profile() {
           .single();
           
         if (error) throw error;
-        setUser(data);
+        setUser({
+          ...data,
+          email: data.email || 'Not provided',
+          phone_number: data.phone_number || 'Not provided',
+          full_name: data.full_name || 'User'
+        });
       }
     } catch (error) {
       setErrorMessage('Error fetching profile data');
@@ -68,6 +102,15 @@ export default function Profile() {
     </View>
   );
 
+  const renderProfileInfo = () => (
+    <View style={styles.profileInfo}>
+      <Text style={styles.name}>{user?.full_name}</Text>
+      <Text style={styles.contact}>
+        {user?.phone_number ? user.phone_number : user?.email}
+      </Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -81,8 +124,7 @@ export default function Profile() {
             source={user?.avatar_url ? { uri: user.avatar_url } : require('../../../assets/profile.png')}
             style={styles.avatar}
           />
-          <Text style={styles.name}>{user?.full_name || 'User'}</Text>
-          <Text style={styles.phone}>{user?.phone}</Text>
+          {renderProfileInfo()}
           <TouchableOpacity 
             style={styles.settingsButton}
             onPress={() => router.push('/(tabs)/profile/editProfile')}
@@ -96,7 +138,12 @@ export default function Profile() {
         {renderSection('General', [{
           title: 'My Appointments',
           icon: 'calendar-outline',
-          onPress: () => router.push('/(tabs)/appointment/index')
+          onPress: async () => {
+            const isAuthed = await checkAuth();
+            if (isAuthed) {
+              router.push('/(tabs)/appointment/index');
+            }
+          }
         }])}
 
         {renderSection('Account Setting', [
@@ -255,5 +302,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1a365d',
     flex: 1,
+  },
+  profileInfo: {
+    alignItems: 'center',
+  },
+  contact: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
 });

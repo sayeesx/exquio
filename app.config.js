@@ -7,7 +7,7 @@ export default {
     icon: './assets/main-logos/icon.png',
     userInterfaceStyle: 'light',
     splash: {
-      image: './assets/splash.png',
+      image: './assets/main-logos/icon.png',
       resizeMode: 'contain',
       backgroundColor: '#ffffff'
     },
@@ -17,7 +17,7 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: './assets/adaptive-icon.png',
+        foregroundImage: './assets/main-logos/icon.png',
         backgroundColor: '#ffffff'
       }
     },

@@ -27,6 +27,7 @@ import { useRouter } from "expo-router"
 import AlertModal from '../../../components/AlertModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LoadingAnimation } from '../../../components/LoadingAnimation';
+import { secureLog } from '../../../utils/secureLogging';
 
 export default function DoctorProfile() {
   const { id } = useLocalSearchParams()
@@ -121,7 +122,7 @@ export default function DoctorProfile() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('Auth event:', event);
+        secureLog('Auth event:', { event, session: newSession });
         if (mounted) {
           if (newSession) {
             setSession(newSession);
@@ -333,7 +334,7 @@ export default function DoctorProfile() {
 
       // Add all required doctor details to navigation params
       router.push({
-        pathname: '/checkout/payment',
+        pathname: '/(tabs)/checkout/payment', // Updated path
         params: {
           amount: doctor.consultation_fee,
           doctorId: id,
@@ -426,7 +427,7 @@ export default function DoctorProfile() {
       >
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => router.push("/doctors")}
+          onPress={() => router.push("/(tabs)/doctors")} // Updated path
         >
           <Ionicons name="chevron-back" size={28} color="#fff" />
         </TouchableOpacity>
@@ -517,9 +518,20 @@ export default function DoctorProfile() {
         visible={showPatientForm}
         onClose={() => {
           setShowPatientForm(false);
-          setIsBooking(false); // Reset booking state when closing form
+          setIsBooking(false);
         }}
-        onSubmit={handleBooking} // Changed from bookToken to handleBooking
+        onSubmit={handleBooking}
+        doctorInfo={{
+          id: doctor.id,
+          name: doctor.name,
+          consultationFee: doctor.consultation_fee?.toString(),
+          image: doctor.image_url,
+          specialty: doctor.specialties?.name,
+          hospitalName: doctor.hospitals?.name,
+          nextToken: (availableTokens > 0 ? maxTokens - availableTokens + 1 : 0).toString(),
+          appointmentDate: format(new Date(), 'yyyy-MM-dd'),
+          appointmentTime: getTokenTime(maxTokens - availableTokens + 1)
+        }}
       />
 
       <AlertModal

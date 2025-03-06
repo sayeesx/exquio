@@ -31,26 +31,46 @@ export default function EditProfile() {
     gender: '',
     blood_type: '',
     address: '',
+    age: '',
   });
 
   useEffect(() => {
-    fetchProfile();
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace('/auth/login');
+        return;
+      }
+      fetchProfile();
+    };
+    
+    checkAuth();
   }, []);
 
   const fetchProfile = async () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+      if (!user) throw new Error('Not authenticated');
 
-        if (error) throw error;
-        if (data) setProfile(data);
-      }
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      setProfile({
+        full_name: data.full_name || '',
+        email: data.email || '',
+        phone: data.phone_number || '',
+        avatar_url: data.avatar_url || '',
+        gender: data.gender || '',
+        blood_type: data.blood_type || '',
+        address: data.address || '',
+        age: data.age?.toString() || ''
+      });
     } catch (error) {
       setErrorMessage('Error fetching profile');
       setShowErrorModal(true);
@@ -63,13 +83,18 @@ export default function EditProfile() {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) throw new Error('No user logged in');
+      if (!user) throw new Error('Not authenticated');
 
       const updates = {
         id: user.id,
-        ...profile,
-        updated_at: new Date(),
+        full_name: profile.full_name,
+        email: profile.email,
+        phone_number: profile.phone,
+        gender: profile.gender,
+        blood_type: profile.blood_type,
+        address: profile.address,
+        age: profile.age ? parseInt(profile.age) : null,
+        updated_at: new Date()
       };
 
       const { error } = await supabase
@@ -241,6 +266,24 @@ export default function EditProfile() {
             mode="flat"
             multiline
             numberOfLines={3}
+            style={styles.input}
+            theme={{
+              colors: {
+                primary: '#4C35E3',
+                background: '#fff',
+                text: '#000',
+                placeholder: '#999',
+              }
+            }}
+            textColor="#000"
+          />
+
+          <TextInput
+            label="Age"
+            value={profile.age}
+            onChangeText={(text) => setProfile(prev => ({ ...prev, age: text }))}
+            mode="flat"
+            keyboardType="numeric"
             style={styles.input}
             theme={{
               colors: {

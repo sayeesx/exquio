@@ -134,6 +134,23 @@ export default function AnimatedLogo() {
     });
   };
 
+  // Update navigation handlers
+  const handleSignIn = () => {
+    animateButtonPress(signInArrowRotation, () => {
+      setTimeout(() => {
+        router.push("/auth/login?form=signin");
+      }, 0);
+    });
+  };
+
+  const handleSignUp = () => {
+    animateButtonPress(signUpArrowRotation, () => {
+      setTimeout(() => {
+        router.push("/auth/login?form=signup");
+      }, 0);
+    });
+  };
+
   if (!fontsLoaded) {
     return null;
   }
@@ -209,11 +226,7 @@ export default function AnimatedLogo() {
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
           <TouchableOpacity
             style={[styles.button, styles.signInButton]}
-            onPress={() =>
-              animateButtonPress(signInArrowRotation, () =>
-                router.replace("/auth/login?form=signin")
-              )
-            }
+            onPress={handleSignIn}
             activeOpacity={0.8}
           >
             <Text style={styles.buttonText}>Sign In  </Text>
@@ -240,11 +253,7 @@ export default function AnimatedLogo() {
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
           <TouchableOpacity
             style={[styles.button, styles.signUpButton]}
-            onPress={() =>
-              animateButtonPress(signUpArrowRotation, () =>
-                router.replace("/auth/login?form=signup")
-              )
-            }
+            onPress={handleSignUp}
             activeOpacity={0.8}
           >
             <Text style={[styles.buttonText, styles.signUpText]}>Sign Up</Text>

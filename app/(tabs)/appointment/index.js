@@ -20,6 +20,7 @@ import Icon from "react-native-vector-icons/MaterialIcons"
 import { LinearGradient } from "expo-linear-gradient"
 import { useFonts, Inter_700Bold, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter"
 import { useRouter } from "expo-router"
+import { supabase } from '../../../lib/supabase';
 
 const { width } = Dimensions.get("window")
 const CARD_WIDTH = width * 0.85 // Adjusted Card width
@@ -987,6 +988,18 @@ const AppointmentsScreen = () => {
     }
     setMenuVisible(false);
   };
+
+  // Add auth check when component mounts
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace('/auth/login');
+      }
+    };
+    
+    checkAuth();
+  }, []);
 
   return (
     <View style={styles.container}>

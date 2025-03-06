@@ -1,84 +1,75 @@
-import { Stack } from "expo-router";
-import { Keyboard } from 'react-native';
-import { useState, useEffect } from 'react';
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { Stack, useSegments, useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { useFonts, Inter_700Bold } from '@expo-google-fonts/inter';
+import { AuthProvider, useAuth } from './auth/context/AuthContext';
 
-export default function RootLayout() {
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  let [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold
-  });
+function AuthGuard({ children }) {
+  const { user, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
   useEffect(() => {
-    const keyboardWillShow = Keyboard.addListener('keyboardWillShow', () => {
-      setKeyboardVisible(true);
-    });
-    const keyboardWillHide = Keyboard.addListener('keyboardWillHide', () => {
-      setKeyboardVisible(false);
-    });
+    if (loading) return;
 
-    return () => {
-      keyboardWillShow.remove();
-      keyboardWillHide.remove();
-    };
-  }, []);
+    const inAuthGroup = segments[0] === 'auth';
+    const isIntroPage = segments[0] === 'intro';
+    
+    console.log('Auth state:', { user, segments, inAuthGroup, isIntroPage }); // Add logging
+
+    if (user) {
+      // If user is logged in
+      if (inAuthGroup || isIntroPage) {
+        console.log('Redirecting to home'); // Add logging
+        router.replace('/(tabs)/home');
+      }
+    } else {
+      // If user is not logged in
+      if (!inAuthGroup && !isIntroPage) {
+        console.log('Redirecting to intro'); // Add logging
+        router.replace('/intro');
+      }
+    }
+  }, [user, loading, segments]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4C35E3" />
+      </View>
+    );
+  }
+
+  return children;
+}
+
+export default function Layout() {
+  const [fontsLoaded] = useFonts({
+    Inter_700Bold,
+  });
 
   if (!fontsLoaded) {
-    return null;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4C35E3" />
+      </View>
+    );
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen
-        name="(tabs)"
-        options={{
-          headerShown: false,
-          animation: 'none',
-        }}
-      />
-      <Stack.Screen
-        name="checkout/checkout"
-        options={{
-          headerShown: false
-        }}
-      />
-      <Stack.Screen
-        name="checkout/payment"
-        options={{
-          headerShown: false
-        }}
-      />
-      <Stack.Screen
-        name="checkout/gateway/success"
-        options={{
-          headerShown: false,
-          animation: 'fade',
-          presentation: 'modal'
-        }}
-      />
-      <Stack.Screen
-        name="checkout/gateway/failed"
-        options={{
-          headerShown: false,
-          animation: 'fade',
-          presentation: 'modal'
-        }}
-      />
-      <Stack.Screen
-        name="checkout/gateway/pending"
-        options={{
-          headerShown: false,
-          animation: 'fade',
-          presentation: 'modal'
-        }}
-      />
-    </Stack>
+    <AuthProvider>
+      <AuthGuard>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="intro" />
+          <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="auth/login" options={{ animation: 'slide_from_bottom' }} />
+        </Stack>
+      </AuthGuard>
+    </AuthProvider>
   );
 }

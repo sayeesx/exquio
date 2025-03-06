@@ -14,6 +14,8 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import AgePicker from './AgePicker'
 import RequiredModal from './RequiredModal'
+import { supabase } from '../lib/supabase';
+import { useRouter } from 'expo-router';
 
 const STEPS = {
   NAME: 0,
@@ -22,7 +24,10 @@ const STEPS = {
   GENDER: 3
 }
 
-export default function PatientDetailsForm({ visible, onClose, onSubmit }) {
+// Update the component definition to include doctorInfo prop
+export default function PatientDetailsForm({ visible, onClose, onSubmit, doctorInfo = {} }) {
+  const router = useRouter();
+  
   const [hasPatientId, setHasPatientId] = useState(false)
   const [formData, setFormData] = useState({
     patientId: '',
@@ -32,6 +37,7 @@ export default function PatientDetailsForm({ visible, onClose, onSubmit }) {
     phone: '',
     gender: ''
   })
+  const [userData, setUserData] = useState(null);
 
   const [slideAnim] = useState(new Animated.Value(0))
   const [overlayOpacity] = useState(new Animated.Value(0))
@@ -62,6 +68,7 @@ export default function PatientDetailsForm({ visible, onClose, onSubmit }) {
           useNativeDriver: true,
         })
       ]).start()
+      fetchUserProfile();
     } else {
       Animated.parallel([
         Animated.timing(slideAnim, {
@@ -88,6 +95,69 @@ export default function PatientDetailsForm({ visible, onClose, onSubmit }) {
       useNativeDriver: true,
     }).start()
   }, [hasPatientId])
+
+  const fetchUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        showErrorAlert('Please sign in to continue');
+        setTimeout(() => {
+          onClose();
+          router.push('/auth/login');
+        }, 1500);
+        return;
+      }
+
+      // Try to get existing profile
+      let { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      // If no profile exists, create one
+      if (error && error.code === 'PGRST116') {
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: user.id,
+              updated_at: new Date(),
+            }
+          ])
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        profile = newProfile;
+      } else if (error) {
+        throw error;
+      }
+
+      if (profile) {
+        setFormData(prev => ({
+          ...prev,
+          name: profile.full_name || '',
+          phone: profile.phone_number || '',
+          email: profile.email || user.email || '',
+          age: profile.age?.toString() || '',
+          gender: profile.gender || ''
+        }));
+        setUserData(profile);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      if (error.message === 'Not authenticated') {
+        showErrorAlert('Please sign in to continue');
+        setTimeout(() => {
+          onClose();
+          router.push('/auth/login');
+        }, 1500);
+      } else {
+        showErrorAlert('Error loading profile data');
+      }
+    }
+  };
 
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
@@ -165,34 +235,61 @@ export default function PatientDetailsForm({ visible, onClose, onSubmit }) {
     return true;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateForm()) {
-      const patientDetails = {
-        name: formData.name,
-        age: parseInt(formData.age),
-        gender: formData.gender,
-        phone: formData.phone,
-        isNewPatient: !hasPatientId,
-        patientId: hasPatientId ? formData.patientId : null
-      };
+      setIsLoading(true);
+      try {
+        // Add debug logging
+        console.log("Doctor Info received:", doctorInfo);
 
-      // Add fade out animation
-      Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(overlayOpacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        })
-      ]).start(() => {
-        onSubmit(patientDetails);
-      });
+        // Validate doctor info with more specific error
+        if (!doctorInfo) {
+          throw new Error('Doctor information is missing');
+        }
+        
+        if (!doctorInfo.consultationFee || doctorInfo.consultationFee === '0') {
+          console.error('Invalid consultation fee:', doctorInfo.consultationFee);
+          throw new Error('Consultation fee is not set');
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const patientDetails = {
+          ...formData,
+          userId: user.id,
+          age: parseInt(formData.age),
+          isNewPatient: !hasPatientId,
+          patientId: hasPatientId ? formData.patientId : null
+        };
+
+        await onSubmit(patientDetails);
+        onClose();
+
+        // Navigate to payment page with all required params
+        router.push({
+          pathname: '/checkout/payment',
+          params: {
+            amount: doctorInfo.consultationFee,
+            doctorName: doctorInfo.name,
+            doctorId: doctorInfo.id,
+            doctorImage: doctorInfo.image,
+            specialty: doctorInfo.specialty,
+            hospitalName: doctorInfo.hospitalName,
+            tokenNumber: doctorInfo.nextToken,
+            tokenDate: doctorInfo.appointmentDate,
+            tokenTime: doctorInfo.appointmentTime,
+            patientDetails: JSON.stringify(patientDetails)
+          }
+        });
+      } catch (error) {
+        console.error('Submission error:', error);
+        showErrorAlert(error.message || 'Failed to process appointment');
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }
+  };
 
   const renderAgeInput = () => (
     <View style={styles.inputGroup}>
