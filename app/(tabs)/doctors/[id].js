@@ -20,7 +20,7 @@ import { useNavigation } from "@react-navigation/native"
 import { LinearGradient } from 'expo-linear-gradient'
 import { useLocalSearchParams } from 'expo-router'
 import { supabase } from '../../../lib/supabase'
-import { format } from 'date-fns'
+import { format, addMonths } from 'date-fns'
 import { RealtimeChannel } from '@supabase/supabase-js'
 import PatientDetailsForm from '../../../components/PatientDetailsForm'
 import { useRouter } from "expo-router"
@@ -28,6 +28,7 @@ import AlertModal from '../../../components/AlertModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LoadingAnimation } from '../../../components/LoadingAnimation';
 import { secureLog } from '../../../utils/secureLogging';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function DoctorProfile() {
   const { id } = useLocalSearchParams()
@@ -53,6 +54,10 @@ export default function DoctorProfile() {
     message: '',
     showCancel: false
   });
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dateTokens, setDateTokens] = useState({});
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDateTokens, setSelectedDateTokens] = useState({ available: 0, total: 0 });
 
   const showAlert = (type, title, message, showCancel = false, onConfirm = null) => {
     setAlert({
@@ -226,6 +231,35 @@ export default function DoctorProfile() {
     fetchAllData();
   }, [id, user]);
 
+  // Add effect to fetch tokens when date changes
+  useEffect(() => {
+    const loadSelectedDateTokens = async () => {
+      setDataLoading(true);
+      try {
+        const { data: bookedTokens, error: bookedError } = await supabase
+          .from('tokens')
+          .select('token_number', { count: 'exact' })
+          .eq('doctor_id', id)
+          .eq('booking_date', selectedDate)
+          .eq('status', 'booked');
+
+        if (bookedError) throw bookedError;
+
+        setSelectedDateTokens({
+          total: bookedTokens.length,
+          available: maxTokens - bookedTokens.length
+        });
+      } catch (error) {
+        console.error('Error fetching date tokens:', error);
+        setSelectedDateTokens({ available: maxTokens, total: 0 });
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    loadSelectedDateTokens();
+  }, [selectedDate, id, maxTokens]);
+
   // Update refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -257,13 +291,14 @@ export default function DoctorProfile() {
   const handleBooking = async (patientDetails) => {
     setIsBooking(true);
     try {
-      const { hasTokens } = await checkTokenAvailability();
+      // Check token availability for selected date
+      const { available } = await fetchDateTokens(selectedDate);
       
-      if (!hasTokens) {
+      if (available === 0) {
         showAlert(
           "warning",
           "No Tokens Available",
-          "Sorry, this doctor is not available for booking at the moment."
+          "Sorry, no tokens are available for the selected date."
         );
         return;
       }
@@ -357,6 +392,49 @@ export default function DoctorProfile() {
     }
   };
 
+  // Add this function to fetch tokens for a specific date
+  const fetchDateTokens = async (date) => {
+    try {
+      // Get total booked tokens for the date
+      const { data: bookedTokens, error: bookedError } = await supabase
+        .from('tokens')
+        .select('token_number', { count: 'exact' })
+        .eq('doctor_id', id)
+        .eq('booking_date', date)
+        .eq('status', 'booked');
+
+      if (bookedError) throw bookedError;
+
+      // Get available tokens for the date
+      const { data: availableTokens, error: availableError } = await supabase
+        .from('tokens')
+        .select('token_number', { count: 'exact' })
+        .eq('doctor_id', id)
+        .eq('booking_date', date)
+        .eq('status', 'available');
+
+      if (availableError) throw availableError;
+
+      return {
+        total: bookedTokens.length,
+        available: maxTokens - bookedTokens.length
+      };
+    } catch (error) {
+      console.error('Error fetching date tokens:', error);
+      return { total: 0, available: maxTokens };
+    }
+  };
+
+  // Add date picker handler
+  const onDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      setSelectedDate(formattedDate);
+      setDataLoading(true); // Will trigger the above effect
+    }
+  };
+
   // Update loading state render
   if (loading || !doctor) {
     return (
@@ -388,29 +466,52 @@ export default function DoctorProfile() {
     }
 
     return (
-      <View style={styles.tokenInfoContainer}>
-        <Text style={styles.availabilityText}>
-          Available Tokens: {availableTokens}
-        </Text>
-        {currentToken && (
-          <View style={styles.currentTokenBox}>
-            <Text style={styles.currentTokenLabel}>Current Token</Text>
-            <Text style={styles.currentTokenNumber}>{currentToken.token_number}</Text>
-          </View>
+      <View style={styles.scheduleContainer}>
+        <TouchableOpacity 
+          style={styles.datePickerButton}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Ionicons name="calendar-outline" size={24} color="#4C35E3" />
+          <Text style={styles.datePickerText}>
+            {format(new Date(selectedDate), 'MMMM d, yyyy')}
+          </Text>
+        </TouchableOpacity>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={new Date(selectedDate)}
+            mode="date"
+            display="default"
+            onChange={onDateChange}
+            minimumDate={new Date()}
+            maximumDate={addMonths(new Date(), 2)}
+          />
         )}
 
-        {myToken && (
-          <View style={styles.myTokenBox}>
-            <Text style={styles.myTokenLabel}>Your Token</Text>
-            <Text style={styles.myTokenNumber}>{myToken.token_number}</Text>
-            <Text style={styles.tokenStatus}>{myToken.status}</Text>
-            {myToken.status === 'waiting' && (
-              <Text style={styles.waitingText}>
-                {`${myToken.token_number - (currentToken?.token_number || 0)} patients ahead of you`}
+        <View style={styles.selectedDateInfo}>
+          {dataLoading ? (
+            <ActivityIndicator size="small" color="#4C35E3" />
+          ) : (
+            <>
+              <Text style={styles.availableTokensText}>
+                Available Tokens: {selectedDateTokens.available}
               </Text>
-            )}
-          </View>
-        )}
+              <View style={styles.tokenStatsContainer}>
+                <Text style={styles.bookedTokensText}>
+                  Total Booked: {selectedDateTokens.total}
+                </Text>
+                <Text style={styles.maxTokensText}>
+                  Max Tokens: {maxTokens}
+                </Text>
+              </View>
+              {selectedDateTokens.available === 0 && (
+                <Text style={styles.noTokensWarning}>
+                  No tokens available for this date
+                </Text>
+              )}
+            </>
+          )}
+        </View>
       </View>
     );
   };
@@ -418,7 +519,7 @@ export default function DoctorProfile() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      
+
       <LinearGradient
         colors={["#4C35E3", "#4B47E5", "#5465FF"]}
         start={{ x: 0, y: 0 }}
@@ -556,6 +657,11 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   backButton: {
     position: 'absolute',
@@ -575,6 +681,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
   },
   doctorInfo: {
     alignItems: 'center',
@@ -765,7 +876,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginVertical: 8,
   },
-  
   loadingText: {
     marginTop: 12,
     fontSize: 14,
@@ -780,7 +890,85 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginVertical: 8,
     flexDirection: 'row',
-    gap: 8
-  }
+    gap: 8,
+  },
+  scheduleContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 15,
+    margin: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  selectedDateInfo: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#f8f9ff',
+    borderRadius: 12,
+  },
+  selectedDateTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#1a237e',
+    marginBottom: 10,
+  },
+  tokenInfoBox: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e0e6ff',
+  },
+  availableTokensText: {
+    fontSize: 16,
+    fontFamily: 'Inter_500Medium',
+    color: '#4C35E3',
+    marginBottom: 5,
+  },
+  bookedTokensText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: '#666',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9ff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e0e6ff',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#4C35E3',
+    fontFamily: 'Inter_500Medium',
+  },
+  tokenStatsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e6ff',
+  },
+  maxTokensText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: '#666',
+  },
+  noTokensWarning: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    marginTop: 8,
+    textAlign: 'center',
+  },
 })
 
