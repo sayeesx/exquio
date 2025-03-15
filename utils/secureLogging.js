@@ -16,33 +16,58 @@ const sensitiveFields = [
   'providers',
   'sub',
   'user_id',
-  'role'
+  'role',
+  'image_url',
+  'logo_url',
+  'location_link',
+  'phone_number',
+  'emergency_contact',
+  'doctors_count',
+  'established_year',
+  'facilities',
+  'working_hours',
+  'description',
+  'specialties_count',
+  'ambulance_available',
+  'insurance_accepted',
+  'parking_available',
+  'type'
 ];
 
 // Update maskValue to handle different types of sensitive data
 const maskValue = (value, key) => {
-  if (!value) return value;
+  if (!value) return '[EMPTY]';
   
   if (typeof value === 'string') {
-    if (value.includes('@')) { // Email
-      const [name, domain] = value.split('@');
-      return `${name[0]}${'*'.repeat(name.length - 1)}@${domain}`;
-    } else if (value.length > 20) { // Long strings like IDs
-      return `${value.slice(0, 4)}...${value.slice(-4)}`;
-    } else if (key === 'phone') { // Phone numbers
-      return value.replace(/\d/g, '*');
-    } else if (key.includes('date') || key.includes('_at')) { // Dates
-      return '[TIMESTAMP]';
+    if (value.includes('supabase.co')) {
+      return '[URL_HIDDEN]';
     }
-    return '*'.repeat(Math.min(value.length, 8));
+    if (value.includes('@')) {
+      const [name, domain] = value.split('@');
+      return `${name[0]}***@${domain[0]}***`;
+    }
+    if (value.length > 20) {
+      return '[LONG_STRING]';
+    }
+    if (key === 'phone' || key === 'emergency_contact') {
+      return '[PHONE]';
+    }
+    if (key === 'location') {
+      return '[LOCATION]';
+    }
+    return `[${key.toUpperCase()}]`;
   }
   
   if (Array.isArray(value)) {
     return '[ARRAY]';
   }
   
-  if (typeof value === 'boolean') {
-    return value;
+  if (typeof value === 'object') {
+    return '[OBJECT]';
+  }
+  
+  if (typeof value === 'number') {
+    return '[NUMBER]';
   }
   
   return '[HIDDEN]';

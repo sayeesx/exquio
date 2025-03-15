@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback, memo } from "react"
+import { useState, useRef, useEffect, useCallback, memo, useMemo } from "react"
 import {
   StyleSheet,
   View,
@@ -25,19 +25,33 @@ import { HospitalCardSkeleton } from '../../components/HospitalCardSkeleton';
 import { secureLog } from '../../utils/secureLogging';
 import DoctorCard from '../../components/DoctorCard';
 import LoadingAnimation from '../../components/LoadingAnimation'
-import { fetchDoctors, transformDoctorData } from '../../services/doctorService';
+import { fetchDoctors, transformDoctorData, clearDoctorCache } from '../../services/doctorService';
 
 const { width } = Dimensions.get("window")
 
 const getSupabaseImageUrl = (path) => {
   if (!path) return null;
-  return `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/hospitals/${path}`;
+  secureLog('Image path accessed', '[PATH_HIDDEN]');
+  return '[IMAGE_URL_HIDDEN]';
 };
 
 const HospitalCard = memo(({ hospital, onPress, index }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.95)).current;
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageLoading, setImageLoaded] = useState(false);
+
+  // Create proper image URLs
+  const imageUrl = hospital.image_url 
+    ? hospital.image_url.startsWith('http') 
+      ? hospital.image_url 
+      : `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/hospitals/${hospital.image_url}`
+    : null;
+
+  const logoUrl = hospital.logo_url
+    ? hospital.logo_url.startsWith('http')
+      ? hospital.logo_url
+      : `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/hospital-logos/${hospital.logo_url}`
+    : null;
 
   useEffect(() => {
     Animated.parallel([
@@ -71,7 +85,7 @@ const HospitalCard = memo(({ hospital, onPress, index }) => {
         activeOpacity={0.9}
       >
         <SkeletonImage 
-          source={hospital.image_url ? { uri: hospital.image_url } : null}
+          source={imageUrl ? { uri: imageUrl } : require('../../assets/default-hospital.png')}
           style={styles.hospitalImage}
           onLoad={() => setImageLoaded(true)}
           resizeMode="cover"
@@ -79,9 +93,9 @@ const HospitalCard = memo(({ hospital, onPress, index }) => {
         <BlurView intensity={80} tint="light" style={styles.hospitalInfoOverlay}>
           <View style={styles.hospitalInfo}>
             <View style={styles.nameContainer}>
-              {hospital.logo_url && (
+              {logoUrl && (
                 <Image
-                  source={{ uri: hospital.logo_url }}
+                  source={{ uri: logoUrl }}
                   style={styles.hospitalLogo}
                   resizeMode="contain"
                 />
@@ -201,10 +215,19 @@ export default function Home() {
   const fetchPopularDoctors = useCallback(async () => {
     try {
       setIsLoadingDoctors(true);
-      const data = await fetchDoctors(4); // Changed to fetch only 4 doctors
-      setPopularDoctors(data.map(transformDoctorData));
+      console.log('Fetching popular doctors...'); // Debug log
+      const data = await fetchDoctors(4);
+      
+      if (data && data.length > 0) {
+        console.log(`Found ${data.length} doctors`); // Debug log
+        setPopularDoctors(data); // Use data directly, no need for transformation
+      } else {
+        console.log('No doctors found in data'); // Debug log
+        setPopularDoctors([]);
+      }
     } catch (error) {
       console.error('Error fetching doctors:', error);
+      setPopularDoctors([]);
     } finally {
       setIsLoadingDoctors(false);
     }
@@ -212,7 +235,7 @@ export default function Home() {
 
   // Update the debug useEffect
   useEffect(() => {
-    secureLog('Current hospitalData state', hospitalData);
+    secureLog('Current hospitalData state', '[DATA_HIDDEN]');
   }, [hospitalData]);
 
   const loadUserData = useCallback(async () => {
@@ -288,12 +311,15 @@ export default function Home() {
 
   const handleDoctorPress = useCallback((doctor) => {
     router.push({
-      pathname: `/doctors/${doctor.id}`,
+      pathname: `/doctors/${doctor.doctor_id || doctor.id}`,
       params: { doctorData: JSON.stringify(doctor) }
     });
   }, [router]);
 
-  if (!fontsLoaded || isLoading) {  // Added isLoading check here
+  const memoizedHospitalData = useMemo(() => hospitalData, [hospitalData]);
+  const memoizedPopularDoctors = useMemo(() => popularDoctors, [popularDoctors]);
+
+  if (!fontsLoaded) {
     return (
       <View style={styles.pageLoadingContainer}>
         <LoadingAnimation />
@@ -309,6 +335,8 @@ export default function Home() {
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        removeClippedSubviews={true} // Add this for better performance
+        initialNumToRender={5} // Reduce initial render batch
       >
         <View style={[styles.section, styles.topSection]}>
           <View style={styles.sectionHeader}>
@@ -322,7 +350,7 @@ export default function Home() {
               <TouchableOpacity
                 key={specialty.id}
                 style={styles.specialtyContainer}
-                onPress={() => router.push(`/specialty/${specialty.name.toLowerCase()}`)}
+                onPress={() => router.push(`/speciality/${specialty.id}`)}
               >
                 <View style={styles.specialtyIconContainer}>
                   <Icon name={specialty.icon} size={24} color="#fff" />
@@ -340,15 +368,30 @@ export default function Home() {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle]}>Popular Doctors</Text>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.doctorsScroll}>
-            {popularDoctors.map((doctor) => (
-              <DoctorCard
-                key={doctor.id}
-                doctor={doctor}
-                onPress={() => handleDoctorPress(doctor)}
-              />
-            ))}
-          </ScrollView>
+          {isLoadingDoctors ? (
+            <View style={styles.loadingContainer}>
+              <LoadingAnimation />
+            </View>
+          ) : popularDoctors && popularDoctors.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.doctorsScroll}
+              contentContainerStyle={styles.doctorsScrollContent}
+            >
+              {popularDoctors.map((doctor) => (
+                <DoctorCard
+                  key={doctor.id || doctor.doctor_id}
+                  doctor={doctor}
+                  onPress={() => handleDoctorPress(doctor)}
+                />
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.noDoctorsContainer}>
+              <Text style={styles.noDoctorsText}>No doctors available</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.hospitalSection}>
@@ -370,7 +413,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff", // Changed to white for consistency
+    backgroundColor: "#F5F5F5",  // Match header color
   },
   pageLoadingContainer: {
     flex: 1,
@@ -380,16 +423,18 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',  // Match header color
   },
   scrollContent: {
-    paddingTop: 180, // Increased for better spacing
+    paddingTop: 180, // Increase padding to prevent overlap
     paddingBottom: 20,
   },
   section: {
-    marginBottom: 24, // Increased margin
-    backgroundColor: '#fff',
-    paddingVertical: 16, // Added vertical padding
+    marginBottom: 24,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginHorizontal: 8,
+    paddingRight: 16, // Add right padding for last card
   },
   sectionHeader: {
     flexDirection: "row",
@@ -452,9 +497,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     color: "#666",
   },
-  doctorsScroll: {
+  doctorsWrapper: {
+    marginHorizontal: -20, // Compensate for parent padding
+  },
+  doctorsScrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingVertical: 8,
+  },
+  doctorCardContainer: {
+    marginRight: 16,
   },
   hospitalSection: {
     marginBottom: 24,
@@ -477,12 +528,10 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   topSection: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    paddingTop: 20, // Increased padding
-    marginTop: 10, // Added small gap
-    elevation: 0, // Removed elevation
+    backgroundColor: '#F5F5F5', // Match header color
+    paddingTop: 20,
+    marginTop: 0, // Remove margin to prevent overlap
+    elevation: 0,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -493,6 +542,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16, // Added bottom padding
     borderBottomWidth: 0, // Added to ensure no bottom border
     borderBottomColor: 'transparent', // Added to ensure no bottom border
+    marginHorizontal: 0, // Reset horizontal margin for top section
+    borderRadius: 0, // Reset border radius for top section
   },
   hospitalCard: {
     height: 180,
@@ -592,4 +643,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     color: '#666',
   },
+  doctorsScroll: {
+    flexGrow: 0,
+    marginBottom: 8,
+  },
+  loadingContainer: {
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noDoctorsContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noDoctorsText: {
+    fontSize: 16,
+    fontFamily: 'Inter_500Medium',
+    color: '#666',
+  }
 })

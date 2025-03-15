@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Animated, Easing, ActivityIndicator } from "react-native"
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Animated, Easing, ActivityIndicator, StatusBar } from "react-native"
 import Icon from "react-native-vector-icons/MaterialCommunityIcons"
 import { useRouter } from "expo-router"
 import { useState, useRef, useEffect } from "react"
@@ -6,6 +6,7 @@ import NotificationModal from './NotificationModal'
 import AmbulanceModal from './AmbulanceModal' // Add this import
 import { searchDoctorsAndHospitals } from '../utils/searchUtils';
 import SearchResults from './SearchResults';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Header({ scrollOffset }) {
   const router = useRouter()
@@ -17,6 +18,7 @@ export default function Header({ scrollOffset }) {
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeout = useRef(null);
   const intervalRef = useRef(null); // Add this ref to store interval ID
+  const insets = useSafeAreaInsets();
 
   const [notifications] = useState([
     {
@@ -109,138 +111,134 @@ export default function Header({ scrollOffset }) {
   };
 
   return (
-    <Animated.View 
-      style={[
-        styles.container,
-        {
-          transform: [
-            {
-              translateY: scrollOffset.interpolate({
-                inputRange: [0, 170],
-                outputRange: [0, -170],
-                extrapolate: 'clamp'
-              })
-            }
-          ]
-        }
-      ]}
-    >
-      <View style={styles.contentContainer}>
-        <View style={styles.topRow}>
-          <TouchableOpacity onPress={() => setShowAmbulanceModal(true)}>
-            <Icon name="ambulance" size={24} color="#3B39E4" />
-          </TouchableOpacity>
-          <View style={styles.rightIcons}>
-            <TouchableOpacity 
-              style={styles.notificationButton} 
-              onPress={handleNotificationPress}
-            >
-              <Animated.View
-                style={[
-                  styles.notificationIcon,
-                  {
-                    transform: [
-                      {
-                        rotate: bellAnim.interpolate({
-                          inputRange: [-1, 1],
-                          outputRange: ["-20deg", "20deg"],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
+      <Animated.View 
+        style={[
+          styles.container,
+          {
+            paddingTop: insets.top + 10,
+            transform: [
+              {
+                translateY: scrollOffset.interpolate({
+                  inputRange: [0, 170],
+                  outputRange: [0, -170],
+                  extrapolate: 'clamp'
+                })
+              }
+            ]
+          }
+        ]}
+      >
+        <View style={styles.contentContainer}>
+          <View style={styles.topRow}>
+            <TouchableOpacity onPress={() => setShowAmbulanceModal(true)}>
+              <Icon name="ambulance" size={24} color="#3B39E4" />
+            </TouchableOpacity>
+            <View style={styles.rightIcons}>
+              <TouchableOpacity 
+                style={styles.notificationButton} 
+                onPress={handleNotificationPress}
               >
-                <Icon name="bell-outline" size={24} color="#000" />
-              </Animated.View>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleProfile}>
-              <View style={styles.profileIcon}>
-                <Icon name="account-circle" size={24} color="#3B39E4" />
-              </View>
-            </TouchableOpacity>
+                <Animated.View
+                  style={[
+                    styles.notificationIcon,
+                    {
+                      transform: [
+                        {
+                          rotate: bellAnim.interpolate({
+                            inputRange: [-1, 1],
+                            outputRange: ["-20deg", "20deg"],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <Icon name="bell-outline" size={24} color="#000" />
+                </Animated.View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleProfile}>
+                <View style={styles.profileIcon}>
+                  <Icon name="account-circle" size={24} color="#3B39E4" />
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
+
+          <Text style={styles.title}>Find your desired specialist</Text>
         </View>
 
-        <Text style={styles.title}>Find your desired specialist</Text>
-      </View>
+        <View style={styles.searchSection}>
+          <View style={[
+            styles.searchContainer,
+            searchResults ? styles.searchContainerWithResults : null
+          ]}>
+            <TextInput
+              style={[
+                styles.searchInput,
+                searchResults ? styles.searchInputWithResults : null
+              ]}
+              placeholder="Search for doctors or hospitals"
+              value={searchQuery}
+              onChangeText={handleSearch}
+            />
+            {isSearching ? (
+              <View style={styles.searchButton}>
+                <ActivityIndicator size="small" color="#fff" />
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.searchButton}>
+                <Icon name="magnify" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
 
-      <View style={styles.searchSection}>
-        <View style={[
-          styles.searchContainer,
-          searchResults ? styles.searchContainerWithResults : null
-        ]}>
-          <TextInput
-            style={[
-              styles.searchInput,
-              searchResults ? styles.searchInputWithResults : null
-            ]}
-            placeholder="Search for doctors or hospitals"
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
-          {isSearching ? (
-            <View style={styles.searchButton}>
-              <ActivityIndicator size="small" color="#fff" />
+          {searchResults && (
+            <View style={styles.resultsContainer}>
+              <SearchResults 
+                results={searchResults}
+                onResultPress={() => {
+                  setSearchResults(null);
+                  setSearchQuery('');
+                }}
+              />
+              {(searchResults.doctors.length === 0 && searchResults.hospitals.length === 0) && (
+                <View style={styles.noResults}>
+                  <Text style={styles.noResultsText}>No results found for "{searchQuery}"</Text>
+                </View>
+              )}
             </View>
-          ) : (
-            <TouchableOpacity style={styles.searchButton}>
-              <Icon name="magnify" size={20} color="#fff" />
-            </TouchableOpacity>
           )}
         </View>
 
-        {searchResults && (
-          <View style={styles.resultsContainer}>
-            <SearchResults 
-              results={searchResults}
-              onResultPress={() => {
-                setSearchResults(null);
-                setSearchQuery('');
-              }}
-            />
-            {(searchResults.doctors.length === 0 && searchResults.hospitals.length === 0) && (
-              <View style={styles.noResults}>
-                <Text style={styles.noResultsText}>No results found for "{searchQuery}"</Text>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
+        <NotificationModal
+          visible={showNotificationModal}
+          onClose={() => setShowNotificationModal(false)}
+          notifications={notifications}
+        />
 
-      <NotificationModal
-        visible={showNotificationModal}
-        onClose={() => setShowNotificationModal(false)}
-        notifications={notifications}
-      />
-
-      <AmbulanceModal
-        visible={showAmbulanceModal}
-        onClose={() => setShowAmbulanceModal(false)}
-      />
-    </Animated.View>
+        <AmbulanceModal
+          visible={showAmbulanceModal}
+          onClose={() => setShowAmbulanceModal(false)}
+        />
+      </Animated.View>
+    </>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
     padding: 15,
-    height: 180, // Increased height
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    height: 'auto',
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
-    borderBottomLeftRadius: 45,
-    borderBottomRightRadius: 45,
+    paddingBottom: 15, // Add bottom padding
+    borderBottomWidth: 0, // Remove border if any
   },
   contentContainer: {
     marginBottom: 5, // Reduced margin
@@ -269,21 +267,23 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   title: {
-    fontSize: 20, // Reduced font size
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 10, // Reduced margin
+    fontSize: 20,
+    fontFamily: 'Inter_700Bold',
+    color: "#333",
+    marginBottom: 10,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#fff",
     borderRadius: 52,
     paddingLeft: 16,
     overflow: "hidden",
     position: 'relative',
     zIndex: 1,
-    marginBottom: 0, // Default margin
+    marginBottom: 0,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
   searchContainerWithResults: {
     marginBottom: 4,
@@ -292,8 +292,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     fontSize: 16,
-    color: "#000",
-    marginBottom: 0, // Default margin
+    fontFamily: 'Inter_400Regular',
+    color: "#333",
+    marginBottom: 0,
   },
   searchInputWithResults: {
     marginBottom: 4,
@@ -328,6 +329,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noResultsText: {
+    fontFamily: 'Inter_400Regular',
     color: '#666',
     fontSize: 14,
   },

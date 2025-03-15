@@ -1,8 +1,9 @@
 import { supabase } from '../utils/supabase';
 import { kottakkalHospitals } from '../data/hospitals';
+import { secureLog } from '../utils/secureLogging';
 
-const DEFAULT_HOSPITAL_IMAGE = 'https://placehold.co/600x400/png?text=Hospital';
-const DEFAULT_LOGO = 'https://placehold.co/100/png?text=H';
+const DEFAULT_HOSPITAL_IMAGE = '[DEFAULT_IMAGE_URL_HIDDEN]';
+const DEFAULT_LOGO = '[DEFAULT_LOGO_URL_HIDDEN]';
 
 export async function fetchHospitals() {
   try {
@@ -15,14 +16,20 @@ export async function fetchHospitals() {
       throw error;
     }
 
-    return data.map(hospital => ({
-      ...hospital,
-      image: hospital.image_url || DEFAULT_HOSPITAL_IMAGE,
-      logo: DEFAULT_LOGO,
-      rating: hospital.rating ? parseFloat(hospital.rating) || 0.0 : 0.0
+    const sanitizedData = data.map(hospital => ({
+      id: hospital.id,
+      name: hospital.name,
+      location: hospital.location || 'Local Area',
+      type: hospital.type || 'General',
+      rating: hospital.rating || 4.5,
+      image_url: hospital.image_url, // Keep the actual image URL
+      logo_url: hospital.logo_url // Keep the actual logo URL
     }));
+
+    secureLog('Fetched hospital data', '[DATA_HIDDEN]');
+    return sanitizedData;
   } catch (error) {
-    console.error('Error in fetchHospitals:', error);
+    secureLog('Error in fetchHospitals', '[ERROR]');
     throw error;
   }
 }
