@@ -310,9 +310,22 @@ export default function Home() {
   }, [fetchHospitalData, loadUserData, fetchPopularDoctors])
 
   const handleDoctorPress = useCallback((doctor) => {
+    if (!doctor?.id) {
+      console.error('Invalid doctor data:', doctor);
+      return;
+    }
+  
+    // Use doctor_id if available, fallback to id
+    const doctorId = doctor.doctor_id || doctor.id;
+    
     router.push({
-      pathname: `/doctors/${doctor.doctor_id || doctor.id}`,
-      params: { doctorData: JSON.stringify(doctor) }
+      pathname: `/(tabs)/doctors/${doctorId}`,
+      params: {
+        doctorData: JSON.stringify({
+          ...doctor,
+          id: doctorId
+        })
+      }
     });
   }, [router]);
 
@@ -352,9 +365,6 @@ export default function Home() {
                 style={styles.specialtyContainer}
                 onPress={() => router.push(`/speciality/${specialty.id}`)}
               >
-                <View style={styles.specialtyIconContainer}>
-                  <Icon name={specialty.icon} size={24} color="#fff" />
-                </View>
                 <View style={styles.specialtyTextContainer}>
                   <Text style={[styles.specialtyName]}>{specialty.name}</Text>
                   <Text style={[styles.doctorsCount]}>{specialty.doctorsAvailable} Doctors</Text>
@@ -433,8 +443,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingVertical: 16,
     borderRadius: 12,
-    marginHorizontal: 8,
-    paddingRight: 16, // Add right padding for last card
+    marginHorizontal: 0, // Changed from 8 to 0
+    paddingRight: 0, // Changed from 16 to 0
   },
   sectionHeader: {
     flexDirection: "row",
@@ -502,7 +512,7 @@ const styles = StyleSheet.create({
   },
   doctorsScrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingVertical: 12, // Increased padding for taller cards
   },
   doctorCardContainer: {
     marginRight: 16,

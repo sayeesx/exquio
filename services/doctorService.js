@@ -45,20 +45,57 @@ const setDoctorsToCache = async (data) => {
 
 const fetchDoctors = async (limit = 4) => {
   try {
-    console.log('Starting fetchDoctors...'); // Debug log
-
-    // Verify if we can access the table
-    const { data: tableCheck, error: tableError } = await supabase
+    const { data, error } = await supabase
       .from('popular_doctors')
-      .select('id')
-      .limit(1);
+      .select(`
+        id,
+        doctor_id,
+        name,
+        image_url,
+        experience_years,
+        rating,
+        consultation_fee,
+        specialty:specialty_id (
+          id,
+          name
+        ),
+        hospital:hospital_id (
+          id,
+          name,
+          location
+        )
+      `)
+      .order('rating', { ascending: false })
+      .limit(limit);
 
-    if (tableError) {
-      console.error('Table access error:', tableError.message);
-      return [];
+    if (error) {
+      console.error('Query error:', error.message);
+      throw error;
     }
 
-    console.log('Table access check:', tableCheck ? 'success' : 'failed');
+    if (data && data.length > 0) {
+      return data.map(doctor => ({
+        ...doctor,
+        // Use doctor_id for navigation instead of popular_doctors id
+        id: doctor.doctor_id || doctor.id
+      }));
+    }
+
+    return [];
+  } catch (error) {
+    console.error('fetchDoctors error:', error.message);
+    return [];
+  }
+};
+
+const fetchDoctorById = async (id) => {
+  try {
+    if (!id) {
+      throw new Error('Missing doctor ID');
+    }
+
+    // Convert numeric id to string if needed
+    const doctorId = typeof id === 'number' ? id.toString() : id;
 
     const { data, error } = await supabase
       .from('popular_doctors')
@@ -79,67 +116,7 @@ const fetchDoctors = async (limit = 4) => {
           location
         )
       `)
-      .order('rating', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error('Query error:', error.message, error.details);
-      throw error;
-    }
-
-    // Debug logs
-    console.log('Query successful');
-    console.log('Raw data length:', data?.length || 0);
-    if (data?.[0]) {
-      console.log('Sample record:', {
-        name: data[0].name,
-        hasSpecialty: !!data[0].specialty,
-        hasHospital: !!data[0].hospital
-      });
-    }
-
-    if (data && data.length > 0) {
-      return data.map(doctor => ({
-        id: doctor.id,
-        name: doctor.name,
-        image_url: doctor.image_url,
-        specialty: doctor.specialty,
-        experience_years: doctor.experience_years,
-        rating: doctor.rating,
-        consultation_fee: doctor.consultation_fee,
-        hospital: doctor.hospital
-      }));
-    }
-
-    return [];
-  } catch (error) {
-    console.error('fetchDoctors error:', error.message);
-    return [];
-  }
-};
-
-const fetchDoctorById = async (id) => {
-  try {
-    // Ensure id is a valid UUID
-    if (!id || typeof id !== 'string') {
-      throw new Error('Invalid doctor ID');
-    }
-
-    const { data, error } = await supabase
-      .from('popular_doctors') // Changed from doctors to popular_doctors
-      .select(`
-        *,
-        specialty:specialty_id (
-          id,
-          name
-        ),
-        hospital:hospital_id (
-          id,
-          name,
-          location
-        )
-      `)
-      .eq('id', id)
+      .eq('id', doctorId)
       .single();
 
     if (error) throw error;
