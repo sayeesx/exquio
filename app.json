@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "healo",
+    "slug": "healo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/main-logos/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "extra": {
+      "SUPABASE_URL": "https://uwzqyjlwymowkjsvjcoo.supabase.co",
+      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3enF5amx3eW1vd2tqc3ZqY29vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkyMDkxNDYsImV4cCI6MjA1NDc4NTE0Nn0.ApQnwUKy6EeLBPRya-dR2pZF480gY63xUzF8aj785OY"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/main-logos/icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.anonymous.healo"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/icon.png"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/main-logos/icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
+    "fonts": [
+      {
+        "asset": "./assets/fonts/Inter-Regular.ttf"
+      },
+      {
+        "asset": "./assets/fonts/Inter-Medium.ttf"
+      },
+      {
+        "asset": "./assets/fonts/Inter-SemiBold.ttf"
+      },
+      {
+        "asset": "./assets/fonts/Inter-Bold.ttf"
+      }
+    ]
+  }
+}
