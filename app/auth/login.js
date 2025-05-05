@@ -33,6 +33,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase configuration. Please check your environment variables.');
 }
 
+// At the top of your file, add these console logs
+console.log('Supabase URL:', supabaseUrl ? 'Set' : 'Missing');
+console.log('Supabase Anon Key:', supabaseAnonKey ? 'Set' : 'Missing');
+
+// Make sure these environment variables are set in your .env file:
+// EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+// EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const FloatingLabelInput = forwardRef(({ label, value, onChangeText, secureTextEntry, style, keyboardType, ...props }, ref) => {
@@ -235,19 +243,6 @@ export default function Login() {
   };
 
   const handleSignIn = async () => {
-    if (isPhoneLogin && !formData.phone) {
-      showToast('error', 'Please enter your phone number');
-      return;
-    }
-    if (!isPhoneLogin && !formData.email) {
-      showToast('error', 'Please enter your email');
-      return;
-    }
-    if (!formData.password) {
-      showToast('error', 'Please enter your password');
-      return;
-    }
-
     try {
       setLoading(true);
       
@@ -255,12 +250,31 @@ export default function Login() {
         ? { phone: formData.phone, password: formData.password }
         : { email: formData.email, password: formData.password };
 
-      await login(credentials);
-      showToast('success', 'Sign in successful');
+      console.log('Attempting login with:', { ...credentials, password: '****' });
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data?.user) {
+        throw new Error('Authentication failed - no user data');
+      }
+
+      console.log('Login successful:', data);
+      showToast('success', 'Successfully signed in!');
       
+      // Change this line to use the correct path
+      router.replace('/(tabs)/home');  // Updated path
+
     } catch (error) {
-      console.error('Sign In Error:', error);
-      showToast('error', error.message || 'Invalid login credentials');
+      console.error('Detailed sign in error:', error);
+      showToast('error', error.message);
+    } finally {
       setLoading(false);
     }
   };

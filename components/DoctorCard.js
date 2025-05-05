@@ -67,8 +67,8 @@ const DoctorCard = ({ doctor, onPress }) => {
 
 const styles = StyleSheet.create({
   doctorCard: {
-    width: 320,
-    height: 140,
+    width: 300,
+    height: 130,
     marginRight: 16,
     backgroundColor: '#F5F5F5',
     flexDirection: 'row',

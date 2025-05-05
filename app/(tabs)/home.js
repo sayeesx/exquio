@@ -26,7 +26,10 @@ import { secureLog } from '../../utils/secureLogging';
 import DoctorCard from '../../components/DoctorCard';
 import LoadingAnimation from '../../components/LoadingAnimation'
 import { fetchDoctors, transformDoctorData, clearDoctorCache } from '../../services/doctorService';
+import { fetchOffers } from '../../services/offerService';
+import OfferCard from '../../components/OfferCard';
 import { StatusBar } from 'expo-status-bar';
+import { COLORS } from '../../constants/colors';
 
 const { width } = Dimensions.get("window")
 
@@ -34,6 +37,22 @@ const getSupabaseImageUrl = (path) => {
   if (!path) return null;
   secureLog('Image path accessed', '[PATH_HIDDEN]');
   return '[IMAGE_URL_HIDDEN]';
+};
+
+const uploadOfferBanner = async (imageUri) => {
+  const fileName = `offer-${Date.now()}.jpg`;
+  const filePath = `offers/${fileName}`;
+  
+  const response = await fetch(imageUri);
+  const blob = await response.blob();
+  
+  const { data, error } = await supabase.storage
+    .from('offers')
+    .upload(filePath, blob);
+    
+  if (error) throw error;
+  
+  return filePath;
 };
 
 const HospitalCard = memo(({ hospital, onPress, index }) => {
@@ -139,10 +158,13 @@ export default function Home() {
   const [hospitalData, setHospitalData] = useState([])
   const [popularDoctors, setPopularDoctors] = useState([]);
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+  const [offers, setOffers] = useState([]);
+  const [isLoadingOffers, setIsLoadingOffers] = useState(true);
   const scrollY = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [statusBarStyle, setStatusBarStyle] = useState("dark-content");
 
   useEffect(() => {
     // Fade in animation when fonts are loaded
@@ -162,12 +184,18 @@ export default function Home() {
       listener: ({ nativeEvent }) => {
         const currentScrollY = nativeEvent.contentOffset.y;
         const headerHeight = 180;
-        const hideAmount = headerHeight * 0.7; // Only hide 70% of header
         
+        // Update status bar style based on scroll position
+        if (currentScrollY > headerHeight) {
+          setStatusBarStyle("dark-content");
+        } else {
+          setStatusBarStyle("dark-content");
+        }
+
         if (currentScrollY > lastScrollY.current && currentScrollY > headerHeight) {
-          // Scrolling down - hide header partially
+          // Scrolling down - hide header completely
           Animated.spring(headerTranslateY, {
-            toValue: -hideAmount,
+            toValue: -headerHeight,
             useNativeDriver: true,
             tension: 80,
             friction: 10
@@ -243,6 +271,52 @@ export default function Home() {
     }
   }, []);
 
+  const fetchOffersData = useCallback(async () => {
+    try {
+      setIsLoadingOffers(true);
+      const data = await fetchOffers(null, true); // Only fetch offers marked for home
+      setOffers(data);
+    } catch (error) {
+      console.error('Error fetching offers:', error);
+    } finally {
+      setIsLoadingOffers(false);
+    }
+  }, []);
+
+  const renderOffersSection = useCallback(() => {
+    if (isLoadingOffers) {
+      return (
+        <View style={styles.loadingContainer}>
+          <LoadingAnimation />
+        </View>
+      );
+    }
+
+    if (!offers?.length) {
+      return (
+        <View style={styles.noOffersContainer}>
+          <Text style={styles.noOffersText}>No active offers available</Text>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.offersScroll}
+        contentContainerStyle={styles.offersScrollContent}
+      >
+        {offers.map((offer) => (
+          <OfferCard
+            key={`offer-${offer.id}`}
+            offer={offer}
+          />
+        ))}
+      </ScrollView>
+    );
+  }, [isLoadingOffers, offers]);
+
   // Optimize initial data loading
   useEffect(() => {
     const loadInitialData = async () => {
@@ -257,6 +331,7 @@ export default function Home() {
         // Start fetching fresh data
         fetchHospitalData();
         fetchPopularDoctors();
+        fetchOffersData();
         loadUserData();
       } catch (error) {
         console.error('Error loading initial data:', error);
@@ -388,7 +463,11 @@ export default function Home() {
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <StatusBar style="light" backgroundColor="transparent" translucent={true} />
+      <StatusBar 
+        style={statusBarStyle} 
+        backgroundColor="transparent" 
+        translucent={true} 
+      />
       <Header scrollOffset={scrollY} />
       <Animated.ScrollView 
         style={[styles.scrollView]}
@@ -435,6 +514,19 @@ export default function Home() {
           {renderDoctorsSection()}
         </View>
 
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle]}>Best Offers For You</Text>
+            <TouchableOpacity 
+              onPress={() => router.push('/offers')} 
+              style={styles.seeAllButton}
+            >
+              <Text style={[styles.seeAll, { color: COLORS.primary }]}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          {renderOffersSection()}
+        </View>
+
         <View style={styles.hospitalSection}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle]}>Hospitals</Text>
@@ -454,7 +546,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",  // Match header color
+    backgroundColor: "#F5F5F5",
   },
   pageLoadingContainer: {
     flex: 1,
@@ -467,7 +559,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',  // Match header color
   },
   scrollContent: {
-    paddingTop: 190, // Further reduced from 200
+    paddingTop: 190,
     paddingBottom: 20,
   },
   section: {
@@ -485,14 +577,17 @@ const styles = StyleSheet.create({
     marginBottom: 8, // Reduced from 12
   },
   sectionTitle: {
-    fontSize: 22, // Increased size
+    fontSize: 18, // Reduced from 22
     fontFamily: 'Inter_600SemiBold',
-    color: "#1a1a1a", // Darker color
+    color: "#1a1a1a",
   },
   seeAll: {
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium', // Changed to medium weight
-    color: "#3B39E4",
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    color: COLORS.primary,
+  },
+  seeAllButton: {
+    padding: 8,
   },
   specialtyScroll: {
     paddingHorizontal: 20,
@@ -549,7 +644,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   hospitalSection: {
-    marginBottom: 16, // Reduced from 24
+    marginBottom: 0,// Reduced from 24
     paddingTop: 8, // Reduced from 16
   },
   hospitalCardsContainer: {
@@ -701,5 +796,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter_500Medium',
     color: '#666',
-  }
+  },
+  offersScroll: {
+    flexGrow: 0,
+    marginTop: 8,
+  },
+  offersScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  noOffersContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noOffersText: {
+    fontSize: 16,
+    fontFamily: 'Inter_500Medium',
+    color: '#666',
+  },
 })

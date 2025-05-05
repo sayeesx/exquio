@@ -200,7 +200,11 @@ export default function Header({ scrollOffset }) {
 
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
+      <StatusBar 
+        barStyle="dark-content" 
+        backgroundColor="transparent" 
+        translucent={true} 
+      />
       <Animated.View 
         style={[
           styles.container,
@@ -214,7 +218,12 @@ export default function Header({ scrollOffset }) {
                   extrapolate: 'clamp'
                 })
               }
-            ]
+            ],
+            opacity: scrollOffset.interpolate({
+              inputRange: [0, 170],
+              outputRange: [1, 0],
+              extrapolate: 'clamp'
+            })
           }
         ]}
       >
@@ -341,9 +350,9 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   title: {
-    fontSize: 20,
-    fontFamily: 'Inter_700Bold',
-    color: "#333",
+    fontSize: 22, // Updated to match home page section titles
+    fontFamily: 'Inter_600SemiBold', // Updated to match home page font
+    color: "#1a1a1a", // Updated to match home page color
     marginBottom: 10,
   },
   searchContainer: {

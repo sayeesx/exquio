@@ -15,8 +15,6 @@ export function AuthProvider({ children }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      // Use secureLog instead of console.log
-      secureLog('Auth session initialized:', { session });
     });
 
     // Listen for auth changes
@@ -24,33 +22,28 @@ export function AuthProvider({ children }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      // Use secureLog for auth state changes
-      secureLog('Auth state changed:', {
-        event: _event,
-        inAuthGroup: !!session,
-        hasUser: !!session?.user,
-        // Only log necessary user info
-        user: session?.user ? {
-          id: session.user.id,
-          email: session.user.email,
-          hasPhone: !!session.user.phone,
-          isVerified: !!session.user.email_confirmed_at
-        } : null
-      });
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const login = async (credentials) => {
-    const { data, error } = await supabase.auth.signInWithPassword(credentials);
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword(credentials);
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw error;
+    }
   };
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      throw error;
+    }
   };
 
   const value = {
@@ -59,7 +52,7 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
-    isAuthenticated: !!user  // Removed comma since this is the last property
+    isAuthenticated: !!user
   };
 
   return (

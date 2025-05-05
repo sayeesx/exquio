@@ -31,20 +31,9 @@
       "**/*"
     ],
     "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/main-logos/icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
-      "expo-font"
+      "expo-router"
     ],
     "experiments": {
-      "typedRoutes": true,
       "tsconfigPaths": true
     },
     "fonts": [
