@@ -529,14 +529,18 @@ export default function Home() {
 
         <View style={styles.hospitalSection}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle]}>Hospitals</Text>
+            <Text style={[styles.sectionTitle]}>Popular Hospitals</Text>
             <TouchableOpacity onPress={handleSeeAllHospitals}>
               <Text style={[styles.seeAllText]}>See All</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.hospitalCardContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hospitalScrollContent}
+          >
             {renderHospitalCardsSection()}
-          </View>
+          </ScrollView>
         </View>
       </Animated.ScrollView>
     </Animated.View>
@@ -545,10 +549,6 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#F5F5F5",
-  },
-  pageLoadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -559,12 +559,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',  // Match header color
   },
   scrollContent: {
-    paddingTop: 190,
+    paddingTop: 210,
     paddingBottom: 20,
   },
   section: {
-    marginBottom: 16, // Further reduced from 24
-    paddingVertical: 8, // Reduced from 12
+    marginBottom: 4, // Further reduced from 24
+    paddingVertical: 0, // Reduced from 12
     borderRadius: 12,
     marginHorizontal: 0,
     paddingRight: 0,

@@ -8,6 +8,7 @@ import { searchDoctorsAndHospitals } from '../utils/searchUtils';
 import SearchResults from './SearchResults';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAmbulanceAnimation } from '../hooks/useAmbulanceAnimation';
+import SearchBar from './SearchBar';
 
 const AmbulanceButton = () => {
   const shimmerX = useAmbulanceAnimation();
@@ -187,12 +188,16 @@ export default function Header({ scrollOffset }) {
     setShowNotificationModal(true);
   };
 
-  const handleSearchPress = () => {
-    router.push({
-      pathname: '/search',
-      params: { transition: 'fade' }
-    });
-  };
+  // In the handleSearchPress function, update to:
+const handleSearchPress = () => {
+  router.push({
+    pathname: '/search',
+    params: { 
+      transition: 'default',
+      presentation: 'transparentModal'
+    }
+  });
+};
 
   const headerStyle = {
     transform: [{ translateY: scrollOffset }]
@@ -264,18 +269,12 @@ export default function Header({ scrollOffset }) {
           <Text style={styles.title}>Find your desired specialist</Text>
         </View>
 
-        <TouchableOpacity 
-          style={styles.searchSection}
+        <SearchBar 
+          inHeader={true}
           onPress={handleSearchPress}
-          activeOpacity={0.7}
-        >
-          <View style={styles.searchContainer}>
-            <View style={styles.searchInput}>
-              <Icon name="magnify" size={20} color="#64748B" />
-              <Text style={styles.searchPlaceholder}>Search for doctors or hospitals</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+          value=""
+          onChangeText={() => {}}
+        />
 
         {searchResults && (
           <View style={styles.resultsContainer}>
@@ -315,15 +314,15 @@ const styles = StyleSheet.create({
     padding: 15,
     height: 'auto',
     position: 'absolute',
-    top: 0,
+    top: 5,
     left: 0,
     right: 0,
     zIndex: 1000,
-    paddingBottom: 15, // Add bottom padding
+    paddingBottom: 0, // Add bottom padding
     borderBottomWidth: 0, // Remove border if any
   },
   contentContainer: {
-    marginBottom: 5, // Reduced margin
+    marginBottom: 3, // Reduced margin
   },
   searchSection: {
     marginBottom: 5,
