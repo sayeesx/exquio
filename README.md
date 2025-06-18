@@ -101,6 +101,15 @@ createClient(
 Built with ❤️ by Sayees
 🌐 sayees.vercel.app
 
+Copyright (c) 2025 Sayees
+
+All rights reserved.
+
+This source code and all associated files are the exclusive property of Sayees. Unauthorized copying, modification, distribution, or use of this software, in whole or in part, is strictly prohibited.
+
+This software is proprietary and confidential. It may not be reproduced, distributed, or used in any way without the express written consent of the copyright holder.
+
+
 Exquio is a work-in-progress project aiming to bring convenience to healthcare booking through mobile-first, secure design.
 
 © 2025 Exquio – All rights reserved.
