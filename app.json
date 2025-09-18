@@ -9,8 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "extra": {
-      "SUPABASE_URL": "https://uwzqyjlwymowkjsvjcoo.supabase.co",
-      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3enF5amx3eW1vd2tqc3ZqY29vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkyMDkxNDYsImV4cCI6MjA1NDc4NTE0Nn0.ApQnwUKy6EeLBPRya-dR2pZF480gY63xUzF8aj785OY"
+      "SUPABASE_URL": "https://hsluqwutrkdreafpxzpz.supabase.co",
+      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzbHVxd3V0cmtkcmVhZnB4enB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMzc3NzcsImV4cCI6MjA3MzYxMzc3N30.xxEGGNSHBQlyFB62jobdu3KHNj7iFeiiBwrxm3QLSxs"
     },
     "ios": {
       "supportsTablet": true
